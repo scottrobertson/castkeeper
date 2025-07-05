@@ -50,7 +50,15 @@ export async function saveHistory(db: D1Database, history: HistoryResponse): Pro
   return { total: result.total };
 }
 
-export async function getEpisodes(db: D1Database): Promise<StoredEpisode[]> {
-  const result = await db.prepare("SELECT * FROM episodes ORDER BY published DESC LIMIT 100").all();
+export async function getEpisodes(db: D1Database, limit?: number): Promise<StoredEpisode[]> {
+  const query = limit 
+    ? "SELECT * FROM episodes ORDER BY published DESC LIMIT ?"
+    : "SELECT * FROM episodes ORDER BY published DESC";
+  
+  const stmt = limit 
+    ? db.prepare(query).bind(limit)
+    : db.prepare(query);
+    
+  const result = await stmt.all();
   return result.results as StoredEpisode[];
 }

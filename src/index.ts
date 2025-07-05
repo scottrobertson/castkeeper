@@ -14,6 +14,8 @@ const worker: ExportedHandler<Env> = {
         return handleBackup(env);
       case "/history":
         return handleHistory(request, env);
+      case "/export":
+        return handleExport(request, env);
       default:
         return new Response("Pocketcasts Backup Worker", { status: 200 });
     }
@@ -58,14 +60,38 @@ async function handleHistory(request: Request, env: Env): Promise<Response> {
   }
 
   try {
-    const episodes = await getEpisodes(env.DB);
-    const html = generateHistoryHtml(episodes);
+    const episodes = await getEpisodes(env.DB, 100);
+    const html = generateHistoryHtml(episodes, password);
     return new Response(html, {
       headers: { "Content-Type": "text/html" },
     });
   } catch (error) {
     console.error("History failed:", error);
     return new Response("Error loading history", { status: 500 });
+  }
+}
+
+async function handleExport(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const password = url.searchParams.get("password");
+
+  if (!isAuthorized(password, env.PASS)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  try {
+    const episodes = await getEpisodes(env.DB);
+    const csv = generateCsv(episodes);
+    
+    return new Response(csv, {
+      headers: {
+        "Content-Type": "text/csv",
+        "Content-Disposition": `attachment; filename="pocketcasts-history-${new Date().toISOString().split('T')[0]}.csv"`,
+      },
+    });
+  } catch (error) {
+    console.error("Export failed:", error);
+    return new Response("Error exporting data", { status: 500 });
   }
 }
 
@@ -116,7 +142,56 @@ function calculateProgress(playedTime: number, duration: number): number {
   return Math.round((playedTime / duration) * 100);
 }
 
-function generateHistoryHtml(episodes: StoredEpisode[]): string {
+function escapeCsvField(field: string | number | null): string {
+  if (field === null || field === undefined) return '';
+  const str = String(field);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function generateCsv(episodes: StoredEpisode[]): string {
+  const headers = [
+    'Episode Title',
+    'Podcast Title',
+    'Duration (seconds)',
+    'Played Up To (seconds)',
+    'Progress (%)',
+    'Published Date',
+    'Episode Type',
+    'Season',
+    'Episode Number',
+    'Author',
+    'Starred',
+    'Deleted'
+  ];
+
+  const csvRows = [headers.join(',')];
+  
+  episodes.forEach(episode => {
+    const progress = calculateProgress(episode.played_up_to, episode.duration);
+    const row = [
+      escapeCsvField(episode.title),
+      escapeCsvField(episode.podcast_title),
+      episode.duration,
+      episode.played_up_to,
+      progress,
+      escapeCsvField(episode.published),
+      escapeCsvField(episode.episode_type),
+      episode.episode_season || '',
+      episode.episode_number || '',
+      escapeCsvField(episode.author),
+      episode.starred ? 'Yes' : 'No',
+      episode.is_deleted ? 'Yes' : 'No'
+    ];
+    csvRows.push(row.join(','));
+  });
+
+  return csvRows.join('\n');
+}
+
+function generateHistoryHtml(episodes: StoredEpisode[], password: string | null): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -149,14 +224,93 @@ function generateHistoryHtml(episodes: StoredEpisode[]): string {
             border-radius: 5px; 
             margin-bottom: 20px; 
         }
+        .export-link {
+            background: #007cba;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+        .export-link:hover {
+            background: #005a87;
+        }
+        .backup-button {
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9em;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        .backup-button:hover {
+            background: #218838;
+        }
+        .backup-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .backup-status {
+            display: inline-block;
+            margin-left: 10px;
+            font-size: 0.9em;
+        }
+        .backup-status.success {
+            color: #28a745;
+        }
+        .backup-status.error {
+            color: #dc3545;
+        }
     </style>
 </head>
 <body>
     <h1>Pocketcasts Listen History</h1>
     <div class="stats">
         <strong>Total Episodes:</strong> ${episodes.length}
+        <button class="backup-button" onclick="runBackup()">Backup Now</button>
+        <a href="/export?password=${encodeURIComponent(password || '')}" class="export-link">Download CSV</a>
+        <span id="backup-status" class="backup-status"></span>
     </div>
     ${episodes.map(episode => generateEpisodeHtml(episode)).join('')}
+    
+    <script>
+        async function runBackup() {
+            const button = document.querySelector('.backup-button');
+            const status = document.getElementById('backup-status');
+            
+            button.disabled = true;
+            button.textContent = 'Running...';
+            status.textContent = '';
+            status.className = 'backup-status';
+            
+            try {
+                const response = await fetch('/backup');
+                const result = await response.json();
+                
+                if (result.success) {
+                    status.innerHTML = '&#x2713; Synced ' + result.synced + ' episodes';
+                    status.className = 'backup-status success';
+                    
+                    // Refresh page after successful backup to show new episodes
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    status.innerHTML = '&#x2717; Error: ' + result.error;
+                    status.className = 'backup-status error';
+                }
+            } catch (error) {
+                status.innerHTML = '&#x2717; Backup failed';
+                status.className = 'backup-status error';
+            }
+            
+            button.disabled = false;
+            button.textContent = 'Backup Now';
+        }
+    </script>
 </body>
 </html>`;
 }
