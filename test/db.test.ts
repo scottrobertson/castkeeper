@@ -102,6 +102,64 @@ describe("saveHistory", () => {
   });
 });
 
+describe("played_at tracking", () => {
+  it("does not set played_at for new episodes already played", async () => {
+    await saveHistory(env.DB, {
+      episodes: [makeEpisode({ playingStatus: 3 })],
+    });
+
+    const episodes = await getEpisodes(env.DB);
+    expect(episodes[0].played_at).toBeNull();
+  });
+
+  it("sets played_at when episode transitions to played", async () => {
+    await saveHistory(env.DB, {
+      episodes: [makeEpisode({ playingStatus: 2, playedUpTo: 1800 })],
+    });
+
+    let episodes = await getEpisodes(env.DB);
+    expect(episodes[0].played_at).toBeNull();
+
+    await saveHistory(env.DB, {
+      episodes: [makeEpisode({ playingStatus: 3, playedUpTo: 3600 })],
+    });
+
+    episodes = await getEpisodes(env.DB);
+    expect(episodes[0].played_at).not.toBeNull();
+  });
+
+  it("preserves played_at on subsequent syncs", async () => {
+    await saveHistory(env.DB, {
+      episodes: [makeEpisode({ playingStatus: 2, playedUpTo: 1800 })],
+    });
+    await saveHistory(env.DB, {
+      episodes: [makeEpisode({ playingStatus: 3, playedUpTo: 3600 })],
+    });
+
+    const episodes = await getEpisodes(env.DB);
+    const originalPlayedAt = episodes[0].played_at;
+
+    await saveHistory(env.DB, {
+      episodes: [makeEpisode({ playingStatus: 3, playedUpTo: 3600 })],
+    });
+
+    const updated = await getEpisodes(env.DB);
+    expect(updated[0].played_at).toBe(originalPlayedAt);
+  });
+
+  it("does not set played_at for episodes still in progress", async () => {
+    await saveHistory(env.DB, {
+      episodes: [makeEpisode({ playingStatus: 1, playedUpTo: 0 })],
+    });
+    await saveHistory(env.DB, {
+      episodes: [makeEpisode({ playingStatus: 2, playedUpTo: 1800 })],
+    });
+
+    const episodes = await getEpisodes(env.DB);
+    expect(episodes[0].played_at).toBeNull();
+  });
+});
+
 describe("getEpisodes", () => {
   it("returns episodes ordered by published desc", async () => {
     const history: HistoryResponse = {

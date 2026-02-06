@@ -55,6 +55,9 @@ export async function saveHistory(d1: D1Database, history: HistoryResponse): Pro
         slug: episode.slug,
         podcast_slug: episode.podcastSlug,
         raw_data: JSON.stringify(episode),
+        played_at: episode.playingStatus === 3
+          ? sql`CASE WHEN ${episodes.playing_status} != 3 THEN CURRENT_TIMESTAMP ELSE ${episodes.played_at} END`
+          : sql`${episodes.played_at}`,
       },
     })
   );
