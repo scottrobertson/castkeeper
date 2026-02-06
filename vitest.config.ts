@@ -13,7 +13,11 @@ export default defineWorkersConfig(async () => {
           wrangler: { configPath: "./wrangler.toml" },
           miniflare: {
             d1Databases: { DB: "DB" },
-            bindings: { TEST_MIGRATIONS: migrations },
+            bindings: {
+              TEST_MIGRATIONS: migrations,
+              EMAIL: "test@example.com",
+              PASS: "test-password",
+            },
           },
         },
       },
