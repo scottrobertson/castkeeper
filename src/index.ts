@@ -2,7 +2,7 @@
 
 import { login } from "./login";
 import { getListenHistory } from "./history";
-import { saveHistory, initDatabase, getEpisodes } from "./db";
+import { saveHistory, initDatabase, getEpisodes, getEpisodeCount } from "./db";
 import type { Env, BackupResult, ExportedHandler, StoredEpisode } from "./types";
 
 const worker: ExportedHandler<Env> = {
@@ -60,8 +60,11 @@ async function handleHistory(request: Request, env: Env): Promise<Response> {
   }
 
   try {
-    const episodes = await getEpisodes(env.DB, 100);
-    const html = generateHistoryHtml(episodes, password);
+    const [episodes, totalEpisodes] = await Promise.all([
+      getEpisodes(env.DB, 100),
+      getEpisodeCount(env.DB),
+    ]);
+    const html = generateHistoryHtml(episodes, totalEpisodes, password);
     return new Response(html, {
       headers: { "Content-Type": "text/html" },
     });
@@ -191,7 +194,7 @@ function generateCsv(episodes: StoredEpisode[]): string {
   return csvRows.join('\n');
 }
 
-function generateHistoryHtml(episodes: StoredEpisode[], password: string | null): string {
+function generateHistoryHtml(episodes: StoredEpisode[], totalEpisodes: number, password: string | null): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -269,7 +272,7 @@ function generateHistoryHtml(episodes: StoredEpisode[], password: string | null)
 <body>
     <h1>Pocketcasts Listen History</h1>
     <div class="stats">
-        <strong>Total Episodes:</strong> ${episodes.length}
+        <strong>Total Episodes:</strong> ${totalEpisodes}
         <button class="backup-button" onclick="runBackup()">Backup Now</button>
         <a href="/export?password=${encodeURIComponent(password || '')}" class="export-link">Download CSV</a>
         <span id="backup-status" class="backup-status"></span>

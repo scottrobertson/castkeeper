@@ -50,6 +50,11 @@ export async function saveHistory(db: D1Database, history: HistoryResponse): Pro
   return { total: result.total };
 }
 
+export async function getEpisodeCount(db: D1Database): Promise<number> {
+  const result = await db.prepare("SELECT COUNT(*) as total FROM episodes").first() as { total: number };
+  return result.total;
+}
+
 export async function getEpisodes(db: D1Database, limit?: number): Promise<StoredEpisode[]> {
   const query = limit 
     ? "SELECT * FROM episodes ORDER BY published DESC LIMIT ?"
