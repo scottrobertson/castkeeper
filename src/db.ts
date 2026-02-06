@@ -47,16 +47,24 @@ export async function getEpisodeCount(db: D1Database): Promise<number> {
   return result.total;
 }
 
-export async function getEpisodes(db: D1Database, limit?: number): Promise<StoredEpisode[]> {
-  const query = limit
-    ? "SELECT * FROM episodes ORDER BY published DESC LIMIT ?"
-    : "SELECT * FROM episodes ORDER BY published DESC";
+export async function getEpisodes(db: D1Database, limit?: number, offset?: number): Promise<StoredEpisode[]> {
+  if (limit !== undefined && offset !== undefined) {
+    const result = await db.prepare(
+      "SELECT * FROM episodes ORDER BY published DESC LIMIT ? OFFSET ?"
+    ).bind(limit, offset).all<StoredEpisode>();
+    return result.results;
+  }
 
-  const stmt = limit
-    ? db.prepare(query).bind(limit)
-    : db.prepare(query);
+  if (limit !== undefined) {
+    const result = await db.prepare(
+      "SELECT * FROM episodes ORDER BY published DESC LIMIT ?"
+    ).bind(limit).all<StoredEpisode>();
+    return result.results;
+  }
 
-  const result = await stmt.all<StoredEpisode>();
+  const result = await db.prepare(
+    "SELECT * FROM episodes ORDER BY published DESC"
+  ).all<StoredEpisode>();
   return result.results;
 }
 

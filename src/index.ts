@@ -3,7 +3,7 @@
 import { login } from "./login";
 import { getListenHistory, getPodcastList, getBookmarks } from "./api";
 import { saveHistory, savePodcasts, saveBookmarks, getEpisodes, getEpisodeCount, getPodcasts, getBookmarks as getStoredBookmarks } from "./db";
-import { generateHistoryHtml, generatePodcastsHtml, generateBookmarksHtml } from "./templates";
+import { generateEpisodesHtml, generatePodcastsHtml, generateBookmarksHtml } from "./templates";
 import { generateCsv } from "./csv";
 import type { Env, BackupResult, ExportedHandler } from "./types";
 
@@ -14,8 +14,10 @@ const worker: ExportedHandler<Env> = {
     switch (url.pathname) {
       case "/backup":
         return handleBackup(env);
+      case "/episodes":
+        return handleEpisodes(request, env);
       case "/history":
-        return handleHistory(request, env);
+        return Response.redirect(new URL("/episodes" + new URL(request.url).search, request.url).toString(), 301);
       case "/podcasts":
         return handlePodcasts(request, env);
       case "/bookmarks":
@@ -66,7 +68,9 @@ async function handleBackup(env: Env): Promise<Response> {
   }
 }
 
-async function handleHistory(request: Request, env: Env): Promise<Response> {
+const EPISODES_PER_PAGE = 50;
+
+async function handleEpisodes(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const password = url.searchParams.get("password");
 
@@ -75,17 +79,20 @@ async function handleHistory(request: Request, env: Env): Promise<Response> {
   }
 
   try {
+    const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+    const offset = (page - 1) * EPISODES_PER_PAGE;
+
     const [episodes, totalEpisodes] = await Promise.all([
-      getEpisodes(env.DB, 100),
+      getEpisodes(env.DB, EPISODES_PER_PAGE, offset),
       getEpisodeCount(env.DB),
     ]);
-    const html = generateHistoryHtml(episodes, totalEpisodes, password);
+    const html = generateEpisodesHtml(episodes, totalEpisodes, page, EPISODES_PER_PAGE, password);
     return new Response(html, {
       headers: { "Content-Type": "text/html" },
     });
   } catch (error) {
-    console.error("History failed:", error);
-    return new Response("Error loading history", { status: 500 });
+    console.error("Episodes failed:", error);
+    return new Response("Error loading episodes", { status: 500 });
   }
 }
 

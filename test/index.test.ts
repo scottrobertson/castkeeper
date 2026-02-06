@@ -17,17 +17,23 @@ describe("worker routes", () => {
     expect(text).toBe("Pocketcasts Backup Worker");
   });
 
-  it("returns 401 on /history without password", async () => {
-    const response = await SELF.fetch("https://example.com/history");
+  it("returns 401 on /episodes without password", async () => {
+    const response = await SELF.fetch("https://example.com/episodes");
     expect(response.status).toBe(401);
   });
 
-  it("returns HTML on /history with correct password", async () => {
+  it("returns HTML on /episodes with correct password", async () => {
     const response = await SELF.fetch(
-      `https://example.com/history?password=${env.PASS}`
+      `https://example.com/episodes?password=${env.PASS}`
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("text/html");
+  });
+
+  it("redirects /history to /episodes", async () => {
+    const response = await SELF.fetch("https://example.com/history?password=test", { redirect: "manual" });
+    expect(response.status).toBe(301);
+    expect(response.headers.get("Location")).toContain("/episodes");
   });
 
   it("returns 401 on /podcasts without password", async () => {

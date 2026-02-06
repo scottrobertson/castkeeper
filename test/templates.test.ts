@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDuration, calculateProgress, generateHistoryHtml, generateBookmarksHtml } from "../src/templates";
+import { formatDuration, calculateProgress, generateEpisodesHtml, generateBookmarksHtml } from "../src/templates";
 import type { StoredEpisode, StoredBookmark } from "../src/types";
 
 function makeEpisode(overrides: Partial<StoredEpisode> = {}): StoredEpisode {
@@ -87,31 +87,31 @@ describe("calculateProgress", () => {
   });
 });
 
-describe("generateHistoryHtml", () => {
+describe("generateEpisodesHtml", () => {
   it("includes the total episode count", () => {
-    const html = generateHistoryHtml([], 42, "pass");
+    const html = generateEpisodesHtml([], 42, 1, 50, "pass");
     expect(html).toContain("42");
   });
 
   it("includes episode titles", () => {
-    const html = generateHistoryHtml([makeEpisode({ title: "My Great Episode" })], 1, "pass");
+    const html = generateEpisodesHtml([makeEpisode({ title: "My Great Episode" })], 1, 1, 50, "pass");
     expect(html).toContain("My Great Episode");
   });
 
   it("includes podcast titles", () => {
-    const html = generateHistoryHtml([makeEpisode({ podcast_title: "My Podcast" })], 1, "pass");
+    const html = generateEpisodesHtml([makeEpisode({ podcast_title: "My Podcast" })], 1, 1, 50, "pass");
     expect(html).toContain("My Podcast");
   });
 
   it("includes the CSV export link with password", () => {
-    const html = generateHistoryHtml([], 0, "secret");
+    const html = generateEpisodesHtml([], 0, 1, 50, "secret");
     expect(html).toContain("/export?password=secret");
   });
 
   it("includes formatted duration and progress", () => {
-    const html = generateHistoryHtml(
+    const html = generateEpisodesHtml(
       [makeEpisode({ duration: 3661, played_up_to: 1830 })],
-      1,
+      1, 1, 50,
       "pass"
     );
     expect(html).toContain("1h 1m 1s");
@@ -119,15 +119,34 @@ describe("generateHistoryHtml", () => {
   });
 
   it("includes backup button in nav", () => {
-    const html = generateHistoryHtml([], 0, "pass");
+    const html = generateEpisodesHtml([], 0, 1, 50, "pass");
     expect(html).toContain("Backup Now");
   });
 
   it("includes nav links with password", () => {
-    const html = generateHistoryHtml([], 0, "secret");
-    expect(html).toContain("/history?password=secret");
+    const html = generateEpisodesHtml([], 0, 1, 50, "secret");
+    expect(html).toContain("/episodes?password=secret");
     expect(html).toContain("/podcasts?password=secret");
     expect(html).toContain("/bookmarks?password=secret");
+  });
+
+  it("shows pagination when there are multiple pages", () => {
+    const html = generateEpisodesHtml([], 120, 1, 50, "pass");
+    expect(html).toContain("Page 1 of 3");
+    expect(html).toContain("Next");
+  });
+
+  it("shows previous link on page 2", () => {
+    const html = generateEpisodesHtml([], 120, 2, 50, "pass");
+    expect(html).toContain("Previous");
+    expect(html).toContain("Next");
+    expect(html).toContain("Page 2 of 3");
+  });
+
+  it("hides pagination for single page", () => {
+    const html = generateEpisodesHtml([], 30, 1, 50, "pass");
+    expect(html).not.toContain("Previous");
+    expect(html).not.toContain("Next");
   });
 });
 

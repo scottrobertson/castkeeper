@@ -34,7 +34,7 @@ function layout(title: string, password: string | null, content: string): string
             <div class="flex items-center gap-6">
                 <span class="font-semibold text-gray-900">Pocketcasts Backup</span>
                 <div class="flex gap-4">
-                    <a href="/history${params}" class="text-sm font-medium text-gray-600 hover:text-gray-900">History</a>
+                    <a href="/episodes${params}" class="text-sm font-medium text-gray-600 hover:text-gray-900">Episodes</a>
                     <a href="/podcasts${params}" class="text-sm font-medium text-gray-600 hover:text-gray-900">Podcasts</a>
                     <a href="/bookmarks${params}" class="text-sm font-medium text-gray-600 hover:text-gray-900">Bookmarks</a>
                 </div>
@@ -105,10 +105,13 @@ function generateEpisodeHtml(episode: StoredEpisode): string {
     </div>`;
 }
 
-export function generateHistoryHtml(episodes: StoredEpisode[], totalEpisodes: number, password: string | null): string {
+export function generateEpisodesHtml(episodes: StoredEpisode[], totalEpisodes: number, page: number, perPage: number, password: string | null): string {
+  const totalPages = Math.ceil(totalEpisodes / perPage);
+  const params = password ? `&password=${encodeURIComponent(password)}` : '';
+
   const content = `
     <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Listen History</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Episodes</h1>
         <div class="flex items-center gap-3">
             <span class="text-sm text-gray-500">${totalEpisodes} episodes</span>
             <a href="/export?password=${encodeURIComponent(password || '')}" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-1.5 rounded">Download CSV</a>
@@ -116,9 +119,15 @@ export function generateHistoryHtml(episodes: StoredEpisode[], totalEpisodes: nu
     </div>
     <div class="flex flex-col gap-3">
         ${episodes.map(episode => generateEpisodeHtml(episode)).join('')}
-    </div>`;
+    </div>
+    ${totalPages > 1 ? `
+    <div class="flex items-center justify-center gap-2 mt-6">
+        ${page > 1 ? `<a href="/episodes?page=${page - 1}${params}" class="px-3 py-1.5 text-sm font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-100">Previous</a>` : ''}
+        <span class="text-sm text-gray-500">Page ${page} of ${totalPages}</span>
+        ${page < totalPages ? `<a href="/episodes?page=${page + 1}${params}" class="px-3 py-1.5 text-sm font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-100">Next</a>` : ''}
+    </div>` : ''}`;
 
-  return layout("Pocketcasts Listen History", password, content);
+  return layout("Pocketcasts Episodes", password, content);
 }
 
 function generatePodcastHtml(podcast: StoredPodcast): string {
