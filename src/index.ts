@@ -2,8 +2,8 @@
 
 import { login } from "./login";
 import { getListenHistory, getPodcastList, getBookmarks } from "./api";
-import { saveHistory, savePodcasts, saveBookmarks, getEpisodes, getEpisodeCount, getPodcasts } from "./db";
-import { generateHistoryHtml, generatePodcastsHtml } from "./templates";
+import { saveHistory, savePodcasts, saveBookmarks, getEpisodes, getEpisodeCount, getPodcasts, getBookmarks as getStoredBookmarks } from "./db";
+import { generateHistoryHtml, generatePodcastsHtml, generateBookmarksHtml } from "./templates";
 import { generateCsv } from "./csv";
 import type { Env, BackupResult, ExportedHandler } from "./types";
 
@@ -18,6 +18,8 @@ const worker: ExportedHandler<Env> = {
         return handleHistory(request, env);
       case "/podcasts":
         return handlePodcasts(request, env);
+      case "/bookmarks":
+        return handleBookmarks(request, env);
       case "/export":
         return handleExport(request, env);
       default:
@@ -104,6 +106,26 @@ async function handlePodcasts(request: Request, env: Env): Promise<Response> {
   } catch (error) {
     console.error("Podcasts failed:", error);
     return new Response("Error loading podcasts", { status: 500 });
+  }
+}
+
+async function handleBookmarks(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const password = url.searchParams.get("password");
+
+  if (!isAuthorized(password, env.PASS)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  try {
+    const bookmarks = await getStoredBookmarks(env.DB);
+    const html = generateBookmarksHtml(bookmarks, password);
+    return new Response(html, {
+      headers: { "Content-Type": "text/html" },
+    });
+  } catch (error) {
+    console.error("Bookmarks failed:", error);
+    return new Response("Error loading bookmarks", { status: 500 });
   }
 }
 

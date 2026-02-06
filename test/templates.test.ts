@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { formatDuration, calculateProgress, generateHistoryHtml } from "../src/templates";
-import type { StoredEpisode } from "../src/types";
+import { formatDuration, calculateProgress, generateHistoryHtml, generateBookmarksHtml } from "../src/templates";
+import type { StoredEpisode, StoredBookmark } from "../src/types";
 
 function makeEpisode(overrides: Partial<StoredEpisode> = {}): StoredEpisode {
   return {
@@ -21,7 +21,23 @@ function makeEpisode(overrides: Partial<StoredEpisode> = {}): StoredEpisode {
     episode_season: 1,
     episode_number: 5,
     author: "Test Author",
+    slug: "test-episode",
+    podcast_slug: "test-podcast",
     created_at: "2024-01-15T00:00:00Z",
+    raw_data: "{}",
+    ...overrides,
+  };
+}
+
+function makeBookmark(overrides: Partial<StoredBookmark> = {}): StoredBookmark {
+  return {
+    bookmark_uuid: "bm-123",
+    podcast_uuid: "pod-123",
+    episode_uuid: "ep-123",
+    time: 120,
+    title: "Test Bookmark",
+    created_at: "2024-01-15T10:00:00Z",
+    deleted_at: null,
     raw_data: "{}",
     ...overrides,
   };
@@ -100,5 +116,39 @@ describe("generateHistoryHtml", () => {
     );
     expect(html).toContain("1h 1m 1s");
     expect(html).toContain("50%");
+  });
+
+  it("includes backup button in nav", () => {
+    const html = generateHistoryHtml([], 0, "pass");
+    expect(html).toContain("Backup Now");
+  });
+
+  it("includes nav links with password", () => {
+    const html = generateHistoryHtml([], 0, "secret");
+    expect(html).toContain("/history?password=secret");
+    expect(html).toContain("/podcasts?password=secret");
+    expect(html).toContain("/bookmarks?password=secret");
+  });
+});
+
+describe("generateBookmarksHtml", () => {
+  it("includes bookmark titles", () => {
+    const html = generateBookmarksHtml([makeBookmark({ title: "Great Moment" })], "pass");
+    expect(html).toContain("Great Moment");
+  });
+
+  it("includes formatted bookmark time", () => {
+    const html = generateBookmarksHtml([makeBookmark({ time: 3661 })], "pass");
+    expect(html).toContain("1h 1m 1s");
+  });
+
+  it("shows removed badge for deleted bookmarks", () => {
+    const html = generateBookmarksHtml([makeBookmark({ deleted_at: "2024-06-01T00:00:00Z" })], "pass");
+    expect(html).toContain("Removed");
+  });
+
+  it("shows active count", () => {
+    const html = generateBookmarksHtml([makeBookmark(), makeBookmark({ bookmark_uuid: "bm-2" })], "pass");
+    expect(html).toContain("2 bookmarks");
   });
 });

@@ -45,6 +45,21 @@ describe("worker routes", () => {
     expect(html).toContain("Pocketcasts Podcasts");
   });
 
+  it("returns 401 on /bookmarks without password", async () => {
+    const response = await SELF.fetch("https://example.com/bookmarks");
+    expect(response.status).toBe(401);
+  });
+
+  it("returns HTML on /bookmarks with correct password", async () => {
+    const response = await SELF.fetch(
+      `https://example.com/bookmarks?password=${env.PASS}`
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("text/html");
+    const html = await response.text();
+    expect(html).toContain("Pocketcasts Bookmarks");
+  });
+
   it("returns 401 on /export without password", async () => {
     const response = await SELF.fetch("https://example.com/export");
     expect(response.status).toBe(401);
