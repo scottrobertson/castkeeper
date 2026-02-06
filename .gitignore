@@ -1,5 +1,6 @@
 node_modules
 pocket_casts.db
+localhost.sqlite3
 
 # Environment variables
 .env
