@@ -51,6 +51,7 @@ export function generateHistoryHtml(episodes: StoredEpisode[], totalEpisodes: nu
   return `<!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Pocketcasts Listen History</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
@@ -195,6 +196,7 @@ export function generatePodcastsHtml(podcasts: StoredPodcast[], password: string
   return `<!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Pocketcasts Podcasts</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
