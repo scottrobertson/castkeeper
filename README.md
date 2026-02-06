@@ -2,6 +2,8 @@
 
 A Cloudflare Worker that backs up your Pocket Casts data to a D1 database. Runs on an hourly cron with a web UI to browse everything.
 
+<img width="3984" height="2724" alt="2026-02-06 at 15 46 46@2x" src="https://github.com/user-attachments/assets/9f113b25-06f8-4472-9edc-4e0adfecbf69" />
+
 ## What gets backed up
 
 - **Episodes** — your full listen history, including play progress, duration, and starred status
