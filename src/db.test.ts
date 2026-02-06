@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
-import { initDatabase, saveHistory, getEpisodes, getEpisodeCount } from "./db";
+import { applyD1Migrations } from "cloudflare:test";
+import { saveHistory, getEpisodes, getEpisodeCount } from "./db";
 import type { HistoryResponse } from "./types";
 
 function makeEpisode(overrides: Partial<HistoryResponse["episodes"][number]> = {}) {
@@ -28,27 +29,8 @@ function makeEpisode(overrides: Partial<HistoryResponse["episodes"][number]> = {
 }
 
 beforeEach(async () => {
-  // Drop and recreate for a clean slate each test
   await env.DB.exec("DROP TABLE IF EXISTS episodes");
-  await initDatabase(env.DB);
-});
-
-describe("initDatabase", () => {
-  it("creates the episodes table", async () => {
-    const result = await env.DB.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='episodes'"
-    ).first<{ name: string }>();
-    expect(result?.name).toBe("episodes");
-  });
-
-  it("is idempotent", async () => {
-    await initDatabase(env.DB);
-    await initDatabase(env.DB);
-    const result = await env.DB.prepare(
-      "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='episodes'"
-    ).first<{ count: number }>();
-    expect(result?.count).toBe(1);
-  });
+  await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
 });
 
 describe("saveHistory", () => {

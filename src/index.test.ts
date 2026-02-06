@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { SELF, env } from "cloudflare:test";
-import { initDatabase } from "./db";
+import { applyD1Migrations } from "cloudflare:test";
 
 beforeEach(async () => {
   await env.DB.exec("DROP TABLE IF EXISTS episodes");
-  await initDatabase(env.DB);
+  await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
 });
 
 describe("worker routes", () => {

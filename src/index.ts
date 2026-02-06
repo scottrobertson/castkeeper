@@ -2,7 +2,7 @@
 
 import { login } from "./login";
 import { getListenHistory } from "./history";
-import { saveHistory, initDatabase, getEpisodes, getEpisodeCount } from "./db";
+import { saveHistory, getEpisodes, getEpisodeCount } from "./db";
 import { generateHistoryHtml } from "./templates";
 import { generateCsv } from "./csv";
 import type { Env, BackupResult, ExportedHandler } from "./types";
@@ -33,7 +33,6 @@ export default worker;
 async function handleBackup(env: Env): Promise<Response> {
   try {
     validateEnvironment(env);
-    await initDatabase(env.DB);
 
     const token = await login(env.EMAIL, env.PASS);
     const history = await getListenHistory(token);

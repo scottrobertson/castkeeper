@@ -1,4 +1,4 @@
--- D1 Database Schema for Pocketcasts Backup
+-- Migration number: 0001 	 2026-02-06T00:00:00.000Z
 CREATE TABLE IF NOT EXISTS episodes (
     uuid TEXT PRIMARY KEY,
     url TEXT,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     episode_number INTEGER,
     author TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    raw_data TEXT -- JSON string of the complete episode data
+    raw_data TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_episodes_podcast_uuid ON episodes(podcast_uuid);

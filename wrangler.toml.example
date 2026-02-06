@@ -10,6 +10,7 @@ ENVIRONMENT = "production"
 binding = "DB"
 database_name = "pocketcasts-history"
 database_id = "your-database-id-here"
+migrations_dir = "migrations"
 
 [triggers]
 crons = ["0 * * * *"]

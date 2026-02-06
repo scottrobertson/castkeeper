@@ -55,13 +55,12 @@ npx wrangler secret put EMAIL
 npx wrangler secret put PASS
 ```
 
-6. Deploy:
+6. Apply the database migrations and deploy:
 
 ```bash
+npx wrangler d1 migrations apply pocketcasts-history --remote
 npm run deploy
 ```
-
-The database table is created automatically on the first backup run.
 
 ## How it works
 
@@ -76,6 +75,26 @@ The Pocket Casts API only returns the most recent 100 episodes per request. The 
 | `/export?password=YOUR_PASS` | Download your full history as CSV |
 
 The `/history` and `/export` endpoints are protected by your Pocket Casts password.
+
+## Database Migrations
+
+Schema changes are managed with [D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/) in the `migrations/` directory.
+
+To create a new migration:
+
+```bash
+npx wrangler d1 migrations create <migration-name>
+```
+
+To apply migrations:
+
+```bash
+# Local
+npx wrangler d1 migrations apply pocketcasts-history --local
+
+# Production
+npx wrangler d1 migrations apply pocketcasts-history --remote
+```
 
 ## Local Development
 
