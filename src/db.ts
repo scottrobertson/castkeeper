@@ -1,84 +1,141 @@
 import { drizzle } from "drizzle-orm/d1";
-import { eq, and, count, desc, asc, isNull, isNotNull, sql } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
+import { eq, and, count, desc, asc, inArray, isNull, sql } from "drizzle-orm";
 import { episodes, podcasts, bookmarks } from "./schema";
 import type { StoredEpisode, StoredPodcast, StoredBookmark } from "./schema";
-import type { HistoryResponse, SaveHistoryResult, PodcastListResponse, BookmarkListResponse } from "./types";
+import type { PodcastListResponse, BookmarkListResponse } from "./types";
 
 function getDb(d1: D1Database) {
   return drizzle(d1);
 }
 
-export async function saveHistory(d1: D1Database, history: HistoryResponse): Promise<SaveHistoryResult> {
+const BATCH_SIZE = 50;
+
+async function batchExecute(db: ReturnType<typeof getDb>, stmts: BatchItem<"sqlite">[]): Promise<void> {
+  for (let i = 0; i < stmts.length; i += BATCH_SIZE) {
+    const chunk = stmts.slice(i, i + BATCH_SIZE);
+    await db.batch(chunk as [typeof chunk[0], ...typeof chunk]);
+  }
+}
+
+export async function getExistingEpisodeUuids(d1: D1Database, uuids: string[]): Promise<Set<string>> {
+  if (uuids.length === 0) return new Set();
+
+  const db = getDb(d1);
+  const result = new Set<string>();
+
+  for (let i = 0; i < uuids.length; i += BATCH_SIZE) {
+    const chunk = uuids.slice(i, i + BATCH_SIZE);
+    const rows = await db.select({ uuid: episodes.uuid }).from(episodes).where(inArray(episodes.uuid, chunk));
+    for (const r of rows) result.add(r.uuid);
+  }
+
+  return result;
+}
+
+export interface EpisodeUpdate {
+  uuid: string;
+  playing_status: number;
+  played_up_to: number;
+  starred: number;
+  is_deleted: number;
+}
+
+export async function updateEpisodeSyncData(d1: D1Database, updates: EpisodeUpdate[]): Promise<void> {
+  if (updates.length === 0) return;
+
   const db = getDb(d1);
 
-  // The API returns episodes ordered by most recently interacted. We preserve
-  // that order by assigning each episode an updated_at timestamp offset by 1s
-  // per position (first = now, second = now-1s, etc). On conflict, updated_at
-  // only changes if playing_status or played_up_to actually differ, so episodes
-  // you haven't touched keep their existing position in the list.
-  const now = Date.now();
+  const stmts = updates.map((ep) => {
+    return db.update(episodes)
+      .set({
+        playing_status: ep.playing_status,
+        played_up_to: ep.played_up_to,
+        starred: ep.starred,
+        is_deleted: ep.is_deleted,
+      })
+      .where(eq(episodes.uuid, ep.uuid));
+  });
 
-  const stmts = history.episodes.map((episode, index) => {
-    const updatedAt = new Date(now - index * 1000).toISOString();
+  await batchExecute(db, stmts);
+}
 
+export interface NewEpisode {
+  uuid: string;
+  url: string;
+  title: string;
+  podcast_title: string;
+  podcast_uuid: string;
+  published: string;
+  duration: number;
+  file_type: string;
+  size: string;
+  playing_status: number;
+  played_up_to: number;
+  is_deleted: number;
+  starred: number;
+  episode_type: string;
+  episode_season: number;
+  episode_number: number;
+  author: string;
+  slug: string;
+  podcast_slug: string;
+}
+
+export async function insertNewEpisodes(d1: D1Database, newEpisodes: NewEpisode[]): Promise<void> {
+  if (newEpisodes.length === 0) return;
+
+  const db = getDb(d1);
+
+  const stmts = newEpisodes.map((ep) => {
     return db.insert(episodes).values({
-      uuid: episode.uuid,
-      url: episode.url,
-      title: episode.title,
-      podcast_title: episode.podcastTitle,
-      podcast_uuid: episode.podcastUuid,
-      published: episode.published,
-      duration: episode.duration,
-      file_type: episode.fileType,
-      size: episode.size,
-      playing_status: episode.playingStatus,
-      played_up_to: episode.playedUpTo,
-      is_deleted: episode.isDeleted ? 1 : 0,
-      starred: episode.starred ? 1 : 0,
-      episode_type: episode.episodeType,
-      episode_season: episode.episodeSeason,
-      episode_number: episode.episodeNumber,
-      author: episode.author,
-      slug: episode.slug,
-      podcast_slug: episode.podcastSlug,
-      updated_at: updatedAt,
-      raw_data: JSON.stringify(episode),
+      uuid: ep.uuid,
+      url: ep.url,
+      title: ep.title,
+      podcast_title: ep.podcast_title,
+      podcast_uuid: ep.podcast_uuid,
+      published: ep.published,
+      duration: ep.duration,
+      file_type: ep.file_type,
+      size: ep.size,
+      playing_status: ep.playing_status,
+      played_up_to: ep.played_up_to,
+      is_deleted: ep.is_deleted,
+      starred: ep.starred,
+      episode_type: ep.episode_type,
+      episode_season: ep.episode_season,
+      episode_number: ep.episode_number,
+      author: ep.author,
+      slug: ep.slug,
+      podcast_slug: ep.podcast_slug,
+      raw_data: JSON.stringify(ep),
     }).onConflictDoUpdate({
       target: episodes.uuid,
       set: {
-        url: episode.url,
-        title: episode.title,
-        podcast_title: episode.podcastTitle,
-        podcast_uuid: episode.podcastUuid,
-        published: episode.published,
-        duration: episode.duration,
-        file_type: episode.fileType,
-        size: episode.size,
-        playing_status: episode.playingStatus,
-        played_up_to: episode.playedUpTo,
-        is_deleted: episode.isDeleted ? 1 : 0,
-        starred: episode.starred ? 1 : 0,
-        episode_type: episode.episodeType,
-        episode_season: episode.episodeSeason,
-        episode_number: episode.episodeNumber,
-        author: episode.author,
-        slug: episode.slug,
-        podcast_slug: episode.podcastSlug,
-        updated_at: sql`CASE WHEN ${episodes.playing_status} != ${episode.playingStatus} OR ${episodes.played_up_to} != ${episode.playedUpTo} THEN ${updatedAt} ELSE ${episodes.updated_at} END`,
-        raw_data: JSON.stringify(episode),
-        played_at: episode.playingStatus === 3
-          ? sql`CASE WHEN ${episodes.playing_status} != 3 THEN CURRENT_TIMESTAMP ELSE ${episodes.played_at} END`
-          : sql`${episodes.played_at}`,
+        url: ep.url,
+        title: ep.title,
+        podcast_title: ep.podcast_title,
+        podcast_uuid: ep.podcast_uuid,
+        published: ep.published,
+        duration: ep.duration,
+        file_type: ep.file_type,
+        size: ep.size,
+        playing_status: ep.playing_status,
+        played_up_to: ep.played_up_to,
+        is_deleted: ep.is_deleted,
+        starred: ep.starred,
+        episode_type: ep.episode_type,
+        episode_season: ep.episode_season,
+        episode_number: ep.episode_number,
+        author: ep.author,
+        slug: ep.slug,
+        podcast_slug: ep.podcast_slug,
+        raw_data: JSON.stringify(ep),
       },
     });
   });
 
-  if (stmts.length > 0) {
-    await db.batch(stmts as [typeof stmts[0], ...typeof stmts]);
-  }
-
-  const result = await db.select({ total: count() }).from(episodes);
-  return { total: result[0].total };
+  await batchExecute(db, stmts);
 }
 
 export type EpisodeFilter = "archived" | "in_progress" | "played" | "not_started" | "starred";
@@ -115,7 +172,11 @@ export async function getEpisodes(d1: D1Database, limit?: number, offset?: numbe
   const conditions = buildFilterConditions(filters);
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const query = db.select().from(episodes).where(where).orderBy(sql`${episodes.updated_at} DESC NULLS LAST`, desc(episodes.published));
+  // Order: in_progress (2) first, then played (3), then not started (1), then by published date
+  const query = db.select().from(episodes).where(where).orderBy(
+    sql`CASE ${episodes.playing_status} WHEN 2 THEN 0 WHEN 3 THEN 1 WHEN 1 THEN 2 ELSE 3 END`,
+    desc(episodes.published)
+  );
 
   if (limit !== undefined && offset !== undefined) {
     return query.limit(limit).offset(offset);
@@ -179,7 +240,7 @@ export async function savePodcasts(d1: D1Database, podcastList: PodcastListRespo
   });
 
   if (upsertStmts.length > 0) {
-    await db.batch(upsertStmts as [typeof upsertStmts[0], ...typeof upsertStmts]);
+    await batchExecute(db, upsertStmts);
   }
 
   // Mark podcasts not in the API response as deleted
@@ -242,7 +303,7 @@ export async function saveBookmarks(d1: D1Database, bookmarkList: BookmarkListRe
   });
 
   if (upsertStmts.length > 0) {
-    await db.batch(upsertStmts as [typeof upsertStmts[0], ...typeof upsertStmts]);
+    await batchExecute(db, upsertStmts);
   }
 
   // Mark bookmarks not in the API response as deleted

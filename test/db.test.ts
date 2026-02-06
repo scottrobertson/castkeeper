@@ -1,31 +1,31 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { applyD1Migrations } from "cloudflare:test";
-import { saveHistory, getEpisodes, getEpisodeCount, savePodcasts, getPodcasts, getPodcastCount, saveBookmarks, getBookmarks } from "../src/db";
-import type { HistoryResponse, PodcastListResponse, BookmarkListResponse } from "../src/types";
+import { getExistingEpisodeUuids, updateEpisodeSyncData, insertNewEpisodes, getEpisodes, getEpisodeCount, savePodcasts, getPodcasts, getPodcastCount, saveBookmarks, getBookmarks } from "../src/db";
+import type { NewEpisode } from "../src/db";
+import type { PodcastListResponse, BookmarkListResponse } from "../src/types";
 
-function makeEpisode(overrides: Partial<HistoryResponse["episodes"][number]> = {}) {
+function makeNewEpisode(overrides: Partial<NewEpisode> = {}): NewEpisode {
   return {
     uuid: "ep-1",
     url: "https://example.com/ep1.mp3",
     title: "Test Episode",
-    podcastTitle: "Test Podcast",
-    podcastUuid: "pod-1",
+    podcast_title: "Test Podcast",
+    podcast_uuid: "pod-1",
     published: "2024-01-15T10:00:00Z",
     duration: 3600,
-    fileType: "audio/mpeg",
+    file_type: "audio/mpeg",
     size: "50000000",
-    playingStatus: 3,
-    playedUpTo: 3600,
-    isDeleted: false,
-    starred: false,
-    episodeType: "full",
-    episodeSeason: 1,
-    episodeNumber: 1,
+    playing_status: 3,
+    played_up_to: 3600,
+    is_deleted: 0,
+    starred: 0,
+    episode_type: "full",
+    episode_season: 1,
+    episode_number: 1,
     author: "Test Author",
-    bookmarks: [],
     slug: "test-episode",
-    podcastSlug: "test-podcast",
+    podcast_slug: "test-podcast",
     ...overrides,
   };
 }
@@ -75,124 +75,89 @@ beforeEach(async () => {
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
 });
 
-describe("saveHistory", () => {
+describe("insertNewEpisodes", () => {
   it("inserts episodes", async () => {
-    const history: HistoryResponse = {
-      episodes: [makeEpisode()],
-    };
-
-    const result = await saveHistory(env.DB, history);
-    expect(result.total).toBe(1);
+    await insertNewEpisodes(env.DB, [makeNewEpisode()]);
+    expect(await getEpisodeCount(env.DB)).toBe(1);
   });
 
   it("upserts on duplicate uuid", async () => {
-    const history: HistoryResponse = {
-      episodes: [makeEpisode({ title: "Original Title" })],
-    };
-    await saveHistory(env.DB, history);
+    await insertNewEpisodes(env.DB, [makeNewEpisode({ title: "Original Title" })]);
+    await insertNewEpisodes(env.DB, [makeNewEpisode({ title: "Updated Title" })]);
 
-    const updated: HistoryResponse = {
-      episodes: [makeEpisode({ title: "Updated Title" })],
-    };
-    const result = await saveHistory(env.DB, updated);
-    expect(result.total).toBe(1);
-
+    expect(await getEpisodeCount(env.DB)).toBe(1);
     const episodes = await getEpisodes(env.DB);
     expect(episodes[0].title).toBe("Updated Title");
   });
 });
 
-describe("played_at tracking", () => {
-  it("does not set played_at for new episodes already played", async () => {
-    await saveHistory(env.DB, {
-      episodes: [makeEpisode({ playingStatus: 3 })],
-    });
-
-    const episodes = await getEpisodes(env.DB);
-    expect(episodes[0].played_at).toBeNull();
+describe("getExistingEpisodeUuids", () => {
+  it("returns empty set for empty db", async () => {
+    const result = await getExistingEpisodeUuids(env.DB, ["ep-1"]);
+    expect(result.size).toBe(0);
   });
 
-  it("sets played_at when episode transitions to played", async () => {
-    await saveHistory(env.DB, {
-      episodes: [makeEpisode({ playingStatus: 2, playedUpTo: 1800 })],
-    });
+  it("returns existing uuids", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1" }),
+      makeNewEpisode({ uuid: "ep-2" }),
+    ]);
 
-    let episodes = await getEpisodes(env.DB);
-    expect(episodes[0].played_at).toBeNull();
-
-    await saveHistory(env.DB, {
-      episodes: [makeEpisode({ playingStatus: 3, playedUpTo: 3600 })],
-    });
-
-    episodes = await getEpisodes(env.DB);
-    expect(episodes[0].played_at).not.toBeNull();
+    const result = await getExistingEpisodeUuids(env.DB, ["ep-1", "ep-2", "ep-3"]);
+    expect(result.size).toBe(2);
+    expect(result.has("ep-1")).toBe(true);
+    expect(result.has("ep-2")).toBe(true);
+    expect(result.has("ep-3")).toBe(false);
   });
 
-  it("preserves played_at on subsequent syncs", async () => {
-    await saveHistory(env.DB, {
-      episodes: [makeEpisode({ playingStatus: 2, playedUpTo: 1800 })],
-    });
-    await saveHistory(env.DB, {
-      episodes: [makeEpisode({ playingStatus: 3, playedUpTo: 3600 })],
-    });
-
-    const episodes = await getEpisodes(env.DB);
-    const originalPlayedAt = episodes[0].played_at;
-
-    await saveHistory(env.DB, {
-      episodes: [makeEpisode({ playingStatus: 3, playedUpTo: 3600 })],
-    });
-
-    const updated = await getEpisodes(env.DB);
-    expect(updated[0].played_at).toBe(originalPlayedAt);
+  it("returns empty set for empty input", async () => {
+    const result = await getExistingEpisodeUuids(env.DB, []);
+    expect(result.size).toBe(0);
   });
+});
 
-  it("does not set played_at for episodes still in progress", async () => {
-    await saveHistory(env.DB, {
-      episodes: [makeEpisode({ playingStatus: 1, playedUpTo: 0 })],
-    });
-    await saveHistory(env.DB, {
-      episodes: [makeEpisode({ playingStatus: 2, playedUpTo: 1800 })],
-    });
+describe("updateEpisodeSyncData", () => {
+  it("updates sync fields on existing episodes", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", playing_status: 2, played_up_to: 1800 }),
+    ]);
+
+    await updateEpisodeSyncData(env.DB, [{
+      uuid: "ep-1",
+      playing_status: 3,
+      played_up_to: 3600,
+      starred: 1,
+      is_deleted: 0,
+    }]);
 
     const episodes = await getEpisodes(env.DB);
-    expect(episodes[0].played_at).toBeNull();
+    expect(episodes[0].playing_status).toBe(3);
+    expect(episodes[0].played_up_to).toBe(3600);
+    expect(episodes[0].starred).toBe(1);
   });
 });
 
 describe("getEpisodes", () => {
-  it("orders by most recently interacted", async () => {
-    // Insert two episodes
-    await saveHistory(env.DB, {
-      episodes: [
-        makeEpisode({ uuid: "ep-a", title: "Episode A", playingStatus: 2, playedUpTo: 100 }),
-        makeEpisode({ uuid: "ep-b", title: "Episode B", playingStatus: 2, playedUpTo: 200 }),
-      ],
-    });
-
-    // Interact with episode B only (change its played_up_to)
-    await saveHistory(env.DB, {
-      episodes: [
-        makeEpisode({ uuid: "ep-b", title: "Episode B", playingStatus: 2, playedUpTo: 300 }),
-        makeEpisode({ uuid: "ep-a", title: "Episode A", playingStatus: 2, playedUpTo: 100 }),
-      ],
-    });
+  it("orders by status then published date", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-played", playing_status: 3, published: "2024-03-01T00:00:00Z" }),
+      makeNewEpisode({ uuid: "ep-progress", playing_status: 2, published: "2024-01-01T00:00:00Z" }),
+      makeNewEpisode({ uuid: "ep-not-started", playing_status: 1, published: "2024-02-01T00:00:00Z" }),
+    ]);
 
     const episodes = await getEpisodes(env.DB);
-    expect(episodes).toHaveLength(2);
-    expect(episodes[0].title).toBe("Episode B");
-    expect(episodes[1].title).toBe("Episode A");
+    expect(episodes).toHaveLength(3);
+    expect(episodes[0].uuid).toBe("ep-progress");
+    expect(episodes[1].uuid).toBe("ep-played");
+    expect(episodes[2].uuid).toBe("ep-not-started");
   });
 
   it("respects limit parameter", async () => {
-    const history: HistoryResponse = {
-      episodes: [
-        makeEpisode({ uuid: "ep-1", published: "2024-01-01T00:00:00Z" }),
-        makeEpisode({ uuid: "ep-2", published: "2024-02-01T00:00:00Z" }),
-        makeEpisode({ uuid: "ep-3", published: "2024-03-01T00:00:00Z" }),
-      ],
-    };
-    await saveHistory(env.DB, history);
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", published: "2024-01-01T00:00:00Z" }),
+      makeNewEpisode({ uuid: "ep-2", published: "2024-02-01T00:00:00Z" }),
+      makeNewEpisode({ uuid: "ep-3", published: "2024-03-01T00:00:00Z" }),
+    ]);
 
     const episodes = await getEpisodes(env.DB, 2);
     expect(episodes).toHaveLength(2);
@@ -203,13 +168,10 @@ describe("getEpisodeCount", () => {
   it("returns correct count", async () => {
     expect(await getEpisodeCount(env.DB)).toBe(0);
 
-    const history: HistoryResponse = {
-      episodes: [
-        makeEpisode({ uuid: "ep-1" }),
-        makeEpisode({ uuid: "ep-2" }),
-      ],
-    };
-    await saveHistory(env.DB, history);
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1" }),
+      makeNewEpisode({ uuid: "ep-2" }),
+    ]);
 
     expect(await getEpisodeCount(env.DB)).toBe(2);
   });

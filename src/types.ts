@@ -4,31 +4,45 @@ export interface LoginResponse {
   token: string;
 }
 
-export interface Episode {
+export interface EpisodeSyncItem {
   uuid: string;
-  url: string;
-  published: string;
-  duration: number;
-  fileType: string;
-  title: string;
-  size: string;
   playingStatus: number;
   playedUpTo: number;
-  starred: boolean;
-  podcastUuid: string;
-  podcastTitle: string;
-  episodeType: string;
-  episodeSeason: number;
-  episodeNumber: number;
   isDeleted: boolean;
-  author: string;
+  starred: boolean;
+  duration: number;
   bookmarks: unknown[];
-  slug: string;
-  podcastSlug: string;
+  deselectedChapters: string;
 }
 
-export interface HistoryResponse {
-  episodes: Episode[];
+export interface PodcastEpisodesResponse {
+  episodes: EpisodeSyncItem[];
+}
+
+export interface CacheEpisode {
+  uuid: string;
+  title: string;
+  slug: string;
+  url: string;
+  file_type: string;
+  file_size: number;
+  duration: number;
+  published: string;
+  type: string;
+  season: number;
+  number: number;
+}
+
+export interface CachePodcastResponse {
+  episode_count: number;
+  has_more_episodes: boolean;
+  podcast: {
+    uuid: string;
+    title: string;
+    author: string;
+    slug: string;
+    episodes: CacheEpisode[];
+  };
 }
 
 export interface Podcast {
@@ -89,9 +103,6 @@ export interface BackupResult {
   bookmarks?: number;
 }
 
-export interface SaveHistoryResult {
-  total: number;
-}
 
 export type ExportedHandler<Env = unknown> = {
   fetch?: (request: Request, env: Env, ctx: ExecutionContext) => Response | Promise<Response>;

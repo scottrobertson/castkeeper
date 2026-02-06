@@ -1,22 +1,39 @@
-import type { HistoryResponse, PodcastListResponse, BookmarkListResponse } from "./types";
+import type { PodcastEpisodesResponse, CachePodcastResponse, PodcastListResponse, BookmarkListResponse } from "./types";
 
-export async function getListenHistory(token: string): Promise<HistoryResponse> {
+export async function getEpisodeSyncData(token: string, podcastUuid: string): Promise<PodcastEpisodesResponse> {
   const res = await fetch(
-    "https://api.pocketcasts.com/user/history?limit=200",
+    "https://api.pocketcasts.com/user/podcast/episodes",
     {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({ uuid: podcastUuid }),
     }
   );
 
   if (!res.ok) {
     console.log(await res.text());
-    throw new Error("Failed to fetch listen history");
+    throw new Error(`Failed to fetch episode sync data for ${podcastUuid}`);
   }
-  return await res.json() as HistoryResponse;
+  return await res.json() as PodcastEpisodesResponse;
+}
+
+export async function getPodcastEpisodeMetadata(podcastUuid: string): Promise<CachePodcastResponse> {
+  const res = await fetch(
+    `https://cache.pocketcasts.com/mobile/podcast/full/${podcastUuid}`,
+    {
+      method: "GET",
+      redirect: "follow",
+    }
+  );
+
+  if (!res.ok) {
+    console.log(await res.text());
+    throw new Error(`Failed to fetch podcast metadata for ${podcastUuid}`);
+  }
+  return await res.json() as CachePodcastResponse;
 }
 
 export async function getPodcastList(token: string): Promise<PodcastListResponse> {

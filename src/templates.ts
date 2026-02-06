@@ -16,7 +16,7 @@ export function formatDuration(seconds: number): string {
 }
 
 export function calculateProgress(playedTime: number, duration: number): number {
-  return Math.round((playedTime / duration) * 100);
+  return Math.min(100, Math.round((playedTime / duration) * 100));
 }
 
 function layout(title: string, password: string | null, content: string): string {
@@ -118,7 +118,7 @@ function generateEpisodeHtml(episode: StoredEpisode): string {
         <div class="bg-gray-100 h-1.5 rounded-full mt-2">
             <div class="bg-green-500 h-full rounded-full" style="width: ${progress}%"></div>
         </div>
-        <div class="text-gray-400 text-sm mt-1">Published: ${publishedDate}${episode.played_at ? ` | Played: ${new Date(episode.played_at).toLocaleDateString()}` : ''}</div>
+        <div class="text-gray-400 text-sm mt-1">Published: ${publishedDate}</div>
     </div>`;
 }
 

@@ -1,42 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getListenHistory } from "../src/api";
+import { getEpisodeSyncData, getPodcastEpisodeMetadata } from "../src/api";
 
 beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("getListenHistory", () => {
-  it("returns parsed history on success", async () => {
-    const mockHistory = { episodes: [{ uuid: "ep-1", title: "Test" }] };
+describe("getEpisodeSyncData", () => {
+  it("returns parsed sync data on success", async () => {
+    const mockResponse = { episodes: [{ uuid: "ep-1", playingStatus: 3 }] };
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve(mockHistory),
+        json: () => Promise.resolve(mockResponse),
       })
     );
 
-    const result = await getListenHistory("my-token");
-    expect(result).toEqual(mockHistory);
+    const result = await getEpisodeSyncData("my-token", "pod-1");
+    expect(result).toEqual(mockResponse);
   });
 
-  it("sends the token as a Bearer header", async () => {
+  it("sends the token and podcast uuid", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ episodes: [] }),
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    await getListenHistory("my-token");
+    await getEpisodeSyncData("my-token", "pod-1");
 
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://api.pocketcasts.com/user/history?limit=200",
+      "https://api.pocketcasts.com/user/podcast/episodes",
       {
         method: "POST",
         headers: {
           Authorization: "Bearer my-token",
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({ uuid: "pod-1" }),
       }
     );
   });
@@ -50,8 +51,62 @@ describe("getListenHistory", () => {
       })
     );
 
-    await expect(getListenHistory("bad-token")).rejects.toThrow(
-      "Failed to fetch listen history"
+    await expect(getEpisodeSyncData("bad-token", "pod-1")).rejects.toThrow(
+      "Failed to fetch episode sync data for pod-1"
+    );
+  });
+});
+
+describe("getPodcastEpisodeMetadata", () => {
+  it("returns parsed cache data on success", async () => {
+    const mockResponse = {
+      podcast: {
+        uuid: "pod-1",
+        title: "Test",
+        episodes: [{ uuid: "ep-1", title: "Episode 1" }],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      })
+    );
+
+    const result = await getPodcastEpisodeMetadata("pod-1");
+    expect(result).toEqual(mockResponse);
+  });
+
+  it("fetches from cache server with redirect follow", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ podcast: { episodes: [] } }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await getPodcastEpisodeMetadata("pod-1");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://cache.pocketcasts.com/mobile/podcast/full/pod-1",
+      {
+        method: "GET",
+        redirect: "follow",
+      }
+    );
+  });
+
+  it("throws when the cache server returns an error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        text: () => Promise.resolve("Not Found"),
+      })
+    );
+
+    await expect(getPodcastEpisodeMetadata("pod-1")).rejects.toThrow(
+      "Failed to fetch podcast metadata for pod-1"
     );
   });
 });
