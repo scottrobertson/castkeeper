@@ -63,6 +63,10 @@ npm run deploy
 
 The database table is created automatically on the first backup run.
 
+## How it works
+
+The Pocket Casts API only returns the most recent 100 episodes per request. The worker runs hourly to make sure new listens are captured before they fall outside that window. Each run upserts episodes into D1, so duplicates are handled automatically and your history grows over time.
+
 ## Endpoints
 
 | Path | Description |
