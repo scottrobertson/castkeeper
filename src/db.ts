@@ -11,8 +11,17 @@ function getDb(d1: D1Database) {
 export async function saveHistory(d1: D1Database, history: HistoryResponse): Promise<SaveHistoryResult> {
   const db = getDb(d1);
 
-  const stmts = history.episodes.map((episode) =>
-    db.insert(episodes).values({
+  // The API returns episodes ordered by most recently interacted. We preserve
+  // that order by assigning each episode an updated_at timestamp offset by 1s
+  // per position (first = now, second = now-1s, etc). On conflict, updated_at
+  // only changes if playing_status or played_up_to actually differ, so episodes
+  // you haven't touched keep their existing position in the list.
+  const now = Date.now();
+
+  const stmts = history.episodes.map((episode, index) => {
+    const updatedAt = new Date(now - index * 1000).toISOString();
+
+    return db.insert(episodes).values({
       uuid: episode.uuid,
       url: episode.url,
       title: episode.title,
@@ -32,6 +41,7 @@ export async function saveHistory(d1: D1Database, history: HistoryResponse): Pro
       author: episode.author,
       slug: episode.slug,
       podcast_slug: episode.podcastSlug,
+      updated_at: updatedAt,
       raw_data: JSON.stringify(episode),
     }).onConflictDoUpdate({
       target: episodes.uuid,
@@ -54,13 +64,14 @@ export async function saveHistory(d1: D1Database, history: HistoryResponse): Pro
         author: episode.author,
         slug: episode.slug,
         podcast_slug: episode.podcastSlug,
+        updated_at: sql`CASE WHEN ${episodes.playing_status} != ${episode.playingStatus} OR ${episodes.played_up_to} != ${episode.playedUpTo} THEN ${updatedAt} ELSE ${episodes.updated_at} END`,
         raw_data: JSON.stringify(episode),
         played_at: episode.playingStatus === 3
           ? sql`CASE WHEN ${episodes.playing_status} != 3 THEN CURRENT_TIMESTAMP ELSE ${episodes.played_at} END`
           : sql`${episodes.played_at}`,
       },
-    })
-  );
+    });
+  });
 
   if (stmts.length > 0) {
     await db.batch(stmts as [typeof stmts[0], ...typeof stmts]);
@@ -104,7 +115,7 @@ export async function getEpisodes(d1: D1Database, limit?: number, offset?: numbe
   const conditions = buildFilterConditions(filters);
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const query = db.select().from(episodes).where(where).orderBy(desc(episodes.published));
+  const query = db.select().from(episodes).where(where).orderBy(sql`${episodes.updated_at} DESC NULLS LAST`, desc(episodes.published));
 
   if (limit !== undefined && offset !== undefined) {
     return query.limit(limit).offset(offset);

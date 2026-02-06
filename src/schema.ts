@@ -22,6 +22,7 @@ export const episodes = sqliteTable("episodes", {
   slug: text("slug").notNull(),
   podcast_slug: text("podcast_slug").notNull(),
   played_at: text("played_at"),
+  updated_at: text("updated_at"),
   created_at: text("created_at").default("CURRENT_TIMESTAMP"),
   raw_data: text("raw_data").notNull(),
 });

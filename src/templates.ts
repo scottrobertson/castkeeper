@@ -118,7 +118,7 @@ function generateEpisodeHtml(episode: StoredEpisode): string {
         <div class="bg-gray-100 h-1.5 rounded-full mt-2">
             <div class="bg-green-500 h-full rounded-full" style="width: ${progress}%"></div>
         </div>
-        <div class="text-gray-400 text-sm mt-1">Published: ${publishedDate}</div>
+        <div class="text-gray-400 text-sm mt-1">Published: ${publishedDate}${episode.played_at ? ` | Played: ${new Date(episode.played_at).toLocaleDateString()}` : ''}</div>
     </div>`;
 }
 

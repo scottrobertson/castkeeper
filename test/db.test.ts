@@ -161,19 +161,27 @@ describe("played_at tracking", () => {
 });
 
 describe("getEpisodes", () => {
-  it("returns episodes ordered by published desc", async () => {
-    const history: HistoryResponse = {
+  it("orders by most recently interacted", async () => {
+    // Insert two episodes
+    await saveHistory(env.DB, {
       episodes: [
-        makeEpisode({ uuid: "ep-old", published: "2024-01-01T00:00:00Z", title: "Old" }),
-        makeEpisode({ uuid: "ep-new", published: "2024-06-01T00:00:00Z", title: "New" }),
+        makeEpisode({ uuid: "ep-a", title: "Episode A", playingStatus: 2, playedUpTo: 100 }),
+        makeEpisode({ uuid: "ep-b", title: "Episode B", playingStatus: 2, playedUpTo: 200 }),
       ],
-    };
-    await saveHistory(env.DB, history);
+    });
+
+    // Interact with episode B only (change its played_up_to)
+    await saveHistory(env.DB, {
+      episodes: [
+        makeEpisode({ uuid: "ep-b", title: "Episode B", playingStatus: 2, playedUpTo: 300 }),
+        makeEpisode({ uuid: "ep-a", title: "Episode A", playingStatus: 2, playedUpTo: 100 }),
+      ],
+    });
 
     const episodes = await getEpisodes(env.DB);
     expect(episodes).toHaveLength(2);
-    expect(episodes[0].title).toBe("New");
-    expect(episodes[1].title).toBe("Old");
+    expect(episodes[0].title).toBe("Episode B");
+    expect(episodes[1].title).toBe("Episode A");
   });
 
   it("respects limit parameter", async () => {
