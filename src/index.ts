@@ -1,8 +1,8 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { login } from "./login";
-import { getListenHistory, getPodcastList } from "./api";
-import { saveHistory, savePodcasts, getEpisodes, getEpisodeCount, getPodcasts } from "./db";
+import { getListenHistory, getPodcastList, getBookmarks } from "./api";
+import { saveHistory, savePodcasts, saveBookmarks, getEpisodes, getEpisodeCount, getPodcasts } from "./db";
 import { generateHistoryHtml, generatePodcastsHtml } from "./templates";
 import { generateCsv } from "./csv";
 import type { Env, BackupResult, ExportedHandler } from "./types";
@@ -37,13 +37,15 @@ async function handleBackup(env: Env): Promise<Response> {
     validateEnvironment(env);
 
     const token = await login(env.EMAIL, env.PASS);
-    const [history, podcastList] = await Promise.all([
+    const [history, podcastList, bookmarkList] = await Promise.all([
       getListenHistory(token),
       getPodcastList(token),
+      getBookmarks(token),
     ]);
-    const [savedHistory, savedPodcasts] = await Promise.all([
+    const [savedHistory, savedPodcasts, savedBookmarks] = await Promise.all([
       saveHistory(env.DB, history),
       savePodcasts(env.DB, podcastList),
+      saveBookmarks(env.DB, bookmarkList),
     ]);
 
     const response: BackupResult = {
@@ -52,6 +54,7 @@ async function handleBackup(env: Env): Promise<Response> {
       synced: history.episodes.length,
       total: savedHistory.total,
       podcasts: savedPodcasts.total,
+      bookmarks: savedBookmarks.total,
     };
 
     return createJsonResponse(response);

@@ -59,6 +59,30 @@ export interface PodcastListResponse {
   folders: unknown[];
 }
 
+export interface Bookmark {
+  bookmarkUuid: string;
+  podcastUuid: string;
+  episodeUuid: string;
+  time: number;
+  title: string;
+  createdAt: string;
+}
+
+export interface BookmarkListResponse {
+  bookmarks: Bookmark[];
+}
+
+export interface StoredBookmark {
+  bookmark_uuid: string;
+  podcast_uuid: string;
+  episode_uuid: string;
+  time: number;
+  title: string;
+  created_at: string;
+  deleted_at: string | null;
+  raw_data: string;
+}
+
 export interface Env {
   DB: D1Database;
   EMAIL: string;
@@ -73,6 +97,7 @@ export interface BackupResult {
   synced?: number;
   total?: number;
   podcasts?: number;
+  bookmarks?: number;
 }
 
 export interface SaveHistoryResult {

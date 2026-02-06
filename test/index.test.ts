@@ -5,6 +5,7 @@ import { applyD1Migrations } from "cloudflare:test";
 beforeEach(async () => {
   await env.DB.exec("DROP TABLE IF EXISTS episodes");
   await env.DB.exec("DROP TABLE IF EXISTS podcasts");
+  await env.DB.exec("DROP TABLE IF EXISTS bookmarks");
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
 });
 

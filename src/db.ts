@@ -1,4 +1,4 @@
-import type { HistoryResponse, SaveHistoryResult, StoredEpisode, PodcastListResponse, StoredPodcast } from "./types";
+import type { HistoryResponse, SaveHistoryResult, StoredEpisode, PodcastListResponse, StoredPodcast, BookmarkListResponse, StoredBookmark } from "./types";
 
 export async function saveHistory(db: D1Database, history: HistoryResponse): Promise<SaveHistoryResult> {
   const stmt = db.prepare(`
@@ -125,4 +125,54 @@ export async function getPodcasts(db: D1Database): Promise<StoredPodcast[]> {
 export async function getPodcastCount(db: D1Database): Promise<number> {
   const result = await db.prepare("SELECT COUNT(*) as total FROM podcasts").first() as { total: number };
   return result.total;
+}
+
+export async function saveBookmarks(db: D1Database, bookmarkList: BookmarkListResponse): Promise<{ total: number }> {
+  const upsertStmt = db.prepare(`
+    INSERT OR REPLACE INTO bookmarks (
+      bookmark_uuid, podcast_uuid, episode_uuid, time, title,
+      created_at, deleted_at, raw_data
+    ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+  `);
+
+  const batch: D1PreparedStatement[] = [];
+  const activeUuids = new Set<string>();
+
+  bookmarkList.bookmarks.forEach((bookmark) => {
+    activeUuids.add(bookmark.bookmarkUuid);
+    batch.push(upsertStmt.bind(
+      bookmark.bookmarkUuid,
+      bookmark.podcastUuid,
+      bookmark.episodeUuid,
+      bookmark.time,
+      bookmark.title,
+      bookmark.createdAt,
+      JSON.stringify(bookmark)
+    ));
+  });
+
+  if (batch.length > 0) {
+    await db.batch(batch);
+  }
+
+  if (activeUuids.size > 0) {
+    const placeholders = [...activeUuids].map(() => "?").join(",");
+    await db.prepare(
+      `UPDATE bookmarks SET deleted_at = CURRENT_TIMESTAMP WHERE bookmark_uuid NOT IN (${placeholders}) AND deleted_at IS NULL`
+    ).bind(...activeUuids).run();
+  } else {
+    await db.prepare(
+      "UPDATE bookmarks SET deleted_at = CURRENT_TIMESTAMP WHERE deleted_at IS NULL"
+    ).run();
+  }
+
+  const result = await db.prepare("SELECT COUNT(*) as total FROM bookmarks").first() as { total: number };
+  return { total: result.total };
+}
+
+export async function getBookmarks(db: D1Database): Promise<StoredBookmark[]> {
+  const result = await db.prepare(
+    "SELECT * FROM bookmarks ORDER BY deleted_at IS NOT NULL, created_at DESC"
+  ).all<StoredBookmark>();
+  return result.results;
 }

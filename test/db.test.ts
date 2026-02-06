@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { applyD1Migrations } from "cloudflare:test";
-import { saveHistory, getEpisodes, getEpisodeCount, savePodcasts, getPodcasts, getPodcastCount } from "../src/db";
-import type { HistoryResponse, PodcastListResponse } from "../src/types";
+import { saveHistory, getEpisodes, getEpisodeCount, savePodcasts, getPodcasts, getPodcastCount, saveBookmarks, getBookmarks } from "../src/db";
+import type { HistoryResponse, PodcastListResponse, BookmarkListResponse } from "../src/types";
 
 function makeEpisode(overrides: Partial<HistoryResponse["episodes"][number]> = {}) {
   return {
@@ -56,9 +56,22 @@ function makePodcast(overrides: Partial<PodcastListResponse["podcasts"][number]>
   };
 }
 
+function makeBookmark(overrides: Partial<BookmarkListResponse["bookmarks"][number]> = {}) {
+  return {
+    bookmarkUuid: "bm-1",
+    podcastUuid: "pod-1",
+    episodeUuid: "ep-1",
+    time: 980,
+    title: "Test Bookmark",
+    createdAt: "2024-01-15T10:00:00Z",
+    ...overrides,
+  };
+}
+
 beforeEach(async () => {
   await env.DB.exec("DROP TABLE IF EXISTS episodes");
   await env.DB.exec("DROP TABLE IF EXISTS podcasts");
+  await env.DB.exec("DROP TABLE IF EXISTS bookmarks");
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
 });
 
@@ -240,5 +253,64 @@ describe("getPodcastCount", () => {
     await savePodcasts(env.DB, podcastList);
 
     expect(await getPodcastCount(env.DB)).toBe(2);
+  });
+});
+
+describe("saveBookmarks", () => {
+  it("inserts bookmarks", async () => {
+    const result = await saveBookmarks(env.DB, {
+      bookmarks: [makeBookmark()],
+    });
+    expect(result.total).toBe(1);
+  });
+
+  it("upserts on duplicate bookmark_uuid", async () => {
+    await saveBookmarks(env.DB, {
+      bookmarks: [makeBookmark({ title: "Original" })],
+    });
+
+    const result = await saveBookmarks(env.DB, {
+      bookmarks: [makeBookmark({ title: "Updated" })],
+    });
+    expect(result.total).toBe(1);
+
+    const bookmarks = await getBookmarks(env.DB);
+    expect(bookmarks[0].title).toBe("Updated");
+  });
+
+  it("marks missing bookmarks as deleted", async () => {
+    await saveBookmarks(env.DB, {
+      bookmarks: [
+        makeBookmark({ bookmarkUuid: "bm-1", title: "Stays" }),
+        makeBookmark({ bookmarkUuid: "bm-2", title: "Gets Removed" }),
+      ],
+    });
+
+    await saveBookmarks(env.DB, {
+      bookmarks: [makeBookmark({ bookmarkUuid: "bm-1", title: "Stays" })],
+    });
+
+    const bookmarks = await getBookmarks(env.DB);
+    expect(bookmarks).toHaveLength(2);
+    expect(bookmarks[0].title).toBe("Stays");
+    expect(bookmarks[0].deleted_at).toBeNull();
+    expect(bookmarks[1].title).toBe("Gets Removed");
+    expect(bookmarks[1].deleted_at).not.toBeNull();
+  });
+
+  it("restores deleted bookmarks when re-added", async () => {
+    await saveBookmarks(env.DB, {
+      bookmarks: [makeBookmark({ bookmarkUuid: "bm-1" })],
+    });
+
+    await saveBookmarks(env.DB, { bookmarks: [] });
+    let bookmarks = await getBookmarks(env.DB);
+    expect(bookmarks[0].deleted_at).not.toBeNull();
+
+    await saveBookmarks(env.DB, {
+      bookmarks: [makeBookmark({ bookmarkUuid: "bm-1" })],
+    });
+    bookmarks = await getBookmarks(env.DB);
+    expect(bookmarks[0].deleted_at).toBeNull();
   });
 });
