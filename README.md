@@ -87,7 +87,7 @@ It also fetches your current podcast subscriptions and bookmarks on each run. If
 | `/bookmarks?password=YOUR_PASS` | View your bookmarks |
 | `/export?password=YOUR_PASS` | Download your full episode history as CSV |
 
-All endpoints except `/backup` are protected by your Pocket Casts password. The old `/history` path redirects to `/episodes`.
+All endpoints except `/backup` are protected by your Pocket Casts password.
 
 ## Database Migrations
 
