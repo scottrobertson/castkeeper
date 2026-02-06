@@ -23,10 +23,40 @@ export interface Episode {
   isDeleted: boolean;
   author: string;
   bookmarks: unknown[];
+  slug: string;
+  podcastSlug: string;
 }
 
 export interface HistoryResponse {
   episodes: Episode[];
+}
+
+export interface Podcast {
+  uuid: string;
+  title: string;
+  author: string;
+  description: string;
+  url: string;
+  slug: string;
+  dateAdded: string;
+  folderUuid: string;
+  sortPosition: number;
+  isPrivate: boolean;
+  autoStartFrom: number;
+  autoSkipLast: number;
+  episodesSortOrder: number;
+  lastEpisodeUuid: string;
+  lastEpisodePublished: string;
+  unplayed: boolean;
+  lastEpisodePlayingStatus: number;
+  lastEpisodeArchived: boolean;
+  descriptionHtml: string;
+  settings: unknown;
+}
+
+export interface PodcastListResponse {
+  podcasts: Podcast[];
+  folders: unknown[];
 }
 
 export interface Env {
@@ -42,6 +72,7 @@ export interface BackupResult {
   error?: string;
   synced?: number;
   total?: number;
+  podcasts?: number;
 }
 
 export interface SaveHistoryResult {
@@ -71,6 +102,30 @@ export interface StoredEpisode {
   episode_season: number;
   episode_number: number;
   author: string;
+  slug: string;
+  podcast_slug: string;
   created_at: string;
+  raw_data: string;
+}
+
+export interface StoredPodcast {
+  uuid: string;
+  title: string;
+  author: string;
+  description: string;
+  url: string;
+  slug: string;
+  date_added: string;
+  folder_uuid: string;
+  sort_position: number;
+  is_private: number;
+  auto_start_from: number;
+  auto_skip_last: number;
+  episodes_sort_order: number;
+  last_episode_uuid: string;
+  last_episode_published: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
   raw_data: string;
 }
