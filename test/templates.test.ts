@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { formatDuration, calculateProgress, generateEpisodesHtml, generateBookmarksHtml, formatRelativeDate } from "../src/templates";
-import type { StoredEpisode, StoredBookmark } from "../src/schema";
+import { formatDuration, calculateProgress, generateEpisodesHtml, generatePodcastsHtml, generateBookmarksHtml, formatRelativeDate } from "../src/templates";
+import type { StoredEpisode } from "../src/schema";
+import type { PodcastWithStats, BookmarkWithEpisode } from "../src/db";
 
 function makeEpisode(overrides: Partial<StoredEpisode> = {}): StoredEpisode {
   return {
@@ -29,7 +30,7 @@ function makeEpisode(overrides: Partial<StoredEpisode> = {}): StoredEpisode {
   };
 }
 
-function makeBookmark(overrides: Partial<StoredBookmark> = {}): StoredBookmark {
+function makeBookmark(overrides: Partial<BookmarkWithEpisode> = {}): BookmarkWithEpisode {
   return {
     bookmark_uuid: "bm-123",
     podcast_uuid: "pod-123",
@@ -39,6 +40,39 @@ function makeBookmark(overrides: Partial<StoredBookmark> = {}): StoredBookmark {
     created_at: "2024-01-15T10:00:00Z",
     deleted_at: null,
     raw_data: "{}",
+    episode_title: "Test Episode",
+    podcast_title: "Test Podcast",
+    episode_duration: 3600,
+    ...overrides,
+  };
+}
+
+function makePodcast(overrides: Partial<PodcastWithStats> = {}): PodcastWithStats {
+  return {
+    uuid: "pod-123",
+    title: "Test Podcast",
+    author: "Test Author",
+    description: "A test podcast",
+    url: "https://example.com/feed",
+    slug: "test-podcast",
+    date_added: "2024-01-01T00:00:00Z",
+    folder_uuid: "",
+    sort_position: 1,
+    is_private: 0,
+    auto_start_from: 0,
+    auto_skip_last: 0,
+    episodes_sort_order: 3,
+    last_episode_uuid: "ep-1",
+    last_episode_published: "2024-01-15T10:00:00Z",
+    episode_count: 100,
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+    deleted_at: null,
+    raw_data: "{}",
+    total_episodes: 42,
+    played_count: 38,
+    starred_count: 5,
+    total_played_time: 72000,
     ...overrides,
   };
 }
@@ -234,6 +268,59 @@ describe("generateEpisodesHtml", () => {
   });
 });
 
+describe("generatePodcastsHtml", () => {
+  it("includes podcast title and author", () => {
+    const html = generatePodcastsHtml([makePodcast({ title: "My Podcast", author: "Jane Doe" })], "pass");
+    expect(html).toContain("My Podcast");
+    expect(html).toContain("Jane Doe");
+  });
+
+  it("shows played count", () => {
+    const html = generatePodcastsHtml([makePodcast({ played_count: 38 })], "pass");
+    expect(html).toContain(">38<");
+  });
+
+  it("shows listening time", () => {
+    const html = generatePodcastsHtml([makePodcast({ total_played_time: 7200 })], "pass");
+    expect(html).toContain("2h 0m 0s");
+  });
+
+  it("shows subscribed count", () => {
+    const html = generatePodcastsHtml([makePodcast(), makePodcast({ uuid: "pod-2" })], "pass");
+    expect(html).toContain("2 subscribed");
+  });
+
+  it("shows removed section for deleted podcasts", () => {
+    const html = generatePodcastsHtml([
+      makePodcast(),
+      makePodcast({ uuid: "pod-2", deleted_at: "2024-06-01T00:00:00Z" }),
+    ], "pass");
+    expect(html).toContain("Removed");
+    expect(html).toContain("1 removed");
+  });
+
+
+
+  it("shows dashes for podcast with no tracked episodes", () => {
+    const html = generatePodcastsHtml([makePodcast({ total_episodes: 0, played_count: 0, total_played_time: 0 })], "pass");
+    expect(html).toContain(">\u2014<");
+  });
+
+  it("shows column headers", () => {
+    const html = generatePodcastsHtml([makePodcast()], "pass");
+    expect(html).toContain("Episodes");
+    expect(html).toContain("Played");
+    expect(html).toContain("Listened");
+    expect(html).toContain("Added");
+    expect(html).not.toContain("Started");
+  });
+
+  it("shows episode count", () => {
+    const html = generatePodcastsHtml([makePodcast({ episode_count: 250 })], "pass");
+    expect(html).toContain(">250<");
+  });
+});
+
 describe("generateBookmarksHtml", () => {
   it("includes bookmark titles", () => {
     const html = generateBookmarksHtml([makeBookmark({ title: "Great Moment" })], "pass");
@@ -245,7 +332,7 @@ describe("generateBookmarksHtml", () => {
     expect(html).toContain("1h 1m 1s");
   });
 
-  it("shows removed badge for deleted bookmarks", () => {
+  it("shows removed section for deleted bookmarks", () => {
     const html = generateBookmarksHtml([makeBookmark({ deleted_at: "2024-06-01T00:00:00Z" })], "pass");
     expect(html).toContain("Removed");
   });
@@ -253,5 +340,16 @@ describe("generateBookmarksHtml", () => {
   it("shows active count", () => {
     const html = generateBookmarksHtml([makeBookmark(), makeBookmark({ bookmark_uuid: "bm-2" })], "pass");
     expect(html).toContain("2 bookmarks");
+  });
+
+  it("shows episode title and podcast title", () => {
+    const html = generateBookmarksHtml([makeBookmark({ episode_title: "Great Episode", podcast_title: "Cool Podcast" })], "pass");
+    expect(html).toContain("Great Episode");
+    expect(html).toContain("Cool Podcast");
+  });
+
+  it("handles null episode data gracefully", () => {
+    const html = generateBookmarksHtml([makeBookmark({ episode_title: null, podcast_title: null, episode_duration: null })], "pass");
+    expect(html).toContain("Test Bookmark");
   });
 });

@@ -6,6 +6,47 @@ import type { StoredEpisode, StoredPodcast, StoredBookmark } from "./schema";
 import type { PodcastListResponse, BookmarkListResponse } from "./types";
 import type { HistoryEntry } from "./history";
 
+export interface PodcastWithStats {
+  uuid: string;
+  title: string;
+  author: string;
+  description: string;
+  url: string;
+  slug: string;
+  date_added: string;
+  folder_uuid: string;
+  sort_position: number;
+  is_private: number;
+  auto_start_from: number;
+  auto_skip_last: number;
+  episodes_sort_order: number;
+  last_episode_uuid: string;
+  last_episode_published: string;
+  episode_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+  raw_data: string;
+  total_episodes: number;
+  played_count: number;
+  starred_count: number;
+  total_played_time: number;
+}
+
+export interface BookmarkWithEpisode {
+  bookmark_uuid: string;
+  podcast_uuid: string;
+  episode_uuid: string;
+  time: number;
+  title: string;
+  created_at: string;
+  deleted_at: string | null;
+  raw_data: string;
+  episode_title: string | null;
+  podcast_title: string | null;
+  episode_duration: number | null;
+}
+
 function getDb(d1: D1Database) {
   return drizzle(d1);
 }
@@ -268,6 +309,13 @@ export async function getPodcasts(d1: D1Database): Promise<StoredPodcast[]> {
     .orderBy(sql`deleted_at IS NOT NULL`, asc(podcasts.sort_position));
 }
 
+export async function updatePodcastEpisodeCount(d1: D1Database, podcastUuid: string, episodeCount: number): Promise<void> {
+  const db = getDb(d1);
+  await db.update(podcasts)
+    .set({ episode_count: episodeCount })
+    .where(eq(podcasts.uuid, podcastUuid));
+}
+
 export async function getPodcastCount(d1: D1Database): Promise<number> {
   const db = getDb(d1);
   const result = await db.select({ total: count() }).from(podcasts);
@@ -365,4 +413,44 @@ export async function updateEpisodePlayedAt(d1: D1Database, entries: HistoryEntr
   });
 
   await batchExecute(db, stmts);
+}
+
+export async function getPodcastsWithStats(d1: D1Database): Promise<PodcastWithStats[]> {
+  const result = await d1.prepare(`
+    SELECT
+      p.*,
+      COALESCE(e.total_episodes, 0) AS total_episodes,
+      COALESCE(e.played_count, 0) AS played_count,
+      COALESCE(e.starred_count, 0) AS starred_count,
+      COALESCE(e.total_played_time, 0) AS total_played_time
+    FROM podcasts p
+    LEFT JOIN (
+      SELECT
+        podcast_uuid,
+        COUNT(*) AS total_episodes,
+        SUM(CASE WHEN playing_status = 3 THEN 1 ELSE 0 END) AS played_count,
+        SUM(CASE WHEN starred = 1 THEN 1 ELSE 0 END) AS starred_count,
+        SUM(played_up_to) AS total_played_time
+      FROM episodes
+      GROUP BY podcast_uuid
+    ) e ON p.uuid = e.podcast_uuid
+    ORDER BY p.deleted_at IS NOT NULL, p.date_added DESC
+  `).all<PodcastWithStats>();
+
+  return result.results;
+}
+
+export async function getBookmarksWithEpisodes(d1: D1Database): Promise<BookmarkWithEpisode[]> {
+  const result = await d1.prepare(`
+    SELECT
+      b.*,
+      e.title AS episode_title,
+      e.podcast_title AS podcast_title,
+      e.duration AS episode_duration
+    FROM bookmarks b
+    LEFT JOIN episodes e ON b.episode_uuid = e.uuid
+    ORDER BY b.deleted_at IS NOT NULL, b.created_at DESC
+  `).all<BookmarkWithEpisode>();
+
+  return result.results;
 }

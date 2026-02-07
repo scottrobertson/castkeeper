@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { applyD1Migrations } from "cloudflare:test";
-import { getExistingEpisodeUuids, updateEpisodeSyncData, insertNewEpisodes, getEpisodes, getEpisodeCount, savePodcasts, getPodcasts, getPodcastCount, saveBookmarks, getBookmarks } from "../src/db";
+import { getExistingEpisodeUuids, updateEpisodeSyncData, insertNewEpisodes, getEpisodes, getEpisodeCount, savePodcasts, getPodcasts, getPodcastCount, saveBookmarks, getBookmarks, getPodcastsWithStats, getBookmarksWithEpisodes } from "../src/db";
 import type { NewEpisode } from "../src/db";
 import type { PodcastListResponse, BookmarkListResponse } from "../src/types";
 
@@ -344,5 +344,72 @@ describe("saveBookmarks", () => {
     });
     bookmarks = await getBookmarks(env.DB);
     expect(bookmarks[0].deleted_at).toBeNull();
+  });
+});
+
+describe("getPodcastsWithStats", () => {
+  it("returns zero stats with no episodes", async () => {
+    await savePodcasts(env.DB, {
+      podcasts: [makePodcast()],
+      folders: [],
+    });
+
+    const podcasts = await getPodcastsWithStats(env.DB);
+    expect(podcasts).toHaveLength(1);
+    expect(podcasts[0].total_episodes).toBe(0);
+    expect(podcasts[0].played_count).toBe(0);
+    expect(podcasts[0].starred_count).toBe(0);
+    expect(podcasts[0].total_played_time).toBe(0);
+  });
+
+  it("returns correct aggregation with episodes", async () => {
+    await savePodcasts(env.DB, {
+      podcasts: [makePodcast()],
+      folders: [],
+    });
+
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", playing_status: 3, played_up_to: 3600, starred: 1 }),
+      makeNewEpisode({ uuid: "ep-2", playing_status: 2, played_up_to: 1800, starred: 0 }),
+      makeNewEpisode({ uuid: "ep-3", playing_status: 1, played_up_to: 0, starred: 0 }),
+    ]);
+
+    const podcasts = await getPodcastsWithStats(env.DB);
+    expect(podcasts).toHaveLength(1);
+    expect(podcasts[0].total_episodes).toBe(3);
+    expect(podcasts[0].played_count).toBe(1);
+    expect(podcasts[0].starred_count).toBe(1);
+    expect(podcasts[0].total_played_time).toBe(5400);
+  });
+});
+
+describe("getBookmarksWithEpisodes", () => {
+  it("returns null episode fields when no episode exists", async () => {
+    await saveBookmarks(env.DB, {
+      bookmarks: [makeBookmark()],
+    });
+
+    const bookmarks = await getBookmarksWithEpisodes(env.DB);
+    expect(bookmarks).toHaveLength(1);
+    expect(bookmarks[0].title).toBe("Test Bookmark");
+    expect(bookmarks[0].episode_title).toBeNull();
+    expect(bookmarks[0].podcast_title).toBeNull();
+    expect(bookmarks[0].episode_duration).toBeNull();
+  });
+
+  it("returns joined data when episode exists", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", title: "My Episode", podcast_title: "My Podcast", duration: 3600 }),
+    ]);
+
+    await saveBookmarks(env.DB, {
+      bookmarks: [makeBookmark({ episodeUuid: "ep-1" })],
+    });
+
+    const bookmarks = await getBookmarksWithEpisodes(env.DB);
+    expect(bookmarks).toHaveLength(1);
+    expect(bookmarks[0].episode_title).toBe("My Episode");
+    expect(bookmarks[0].podcast_title).toBe("My Podcast");
+    expect(bookmarks[0].episode_duration).toBe(3600);
   });
 });

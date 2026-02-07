@@ -43,6 +43,7 @@ export const podcasts = sqliteTable("podcasts", {
   episodes_sort_order: integer("episodes_sort_order").notNull(),
   last_episode_uuid: text("last_episode_uuid").notNull(),
   last_episode_published: text("last_episode_published").notNull(),
+  episode_count: integer("episode_count").notNull().default(0),
   created_at: text("created_at").default("CURRENT_TIMESTAMP"),
   updated_at: text("updated_at").default("CURRENT_TIMESTAMP"),
   deleted_at: text("deleted_at"),

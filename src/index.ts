@@ -2,7 +2,7 @@
 
 import { login } from "./login";
 import { getEpisodeSyncData, getPodcastEpisodeMetadata, getPodcastList, getBookmarks } from "./api";
-import { getExistingEpisodeUuids, updateEpisodeSyncData, insertNewEpisodes, savePodcasts, saveBookmarks, getEpisodes, getEpisodeCount, getPodcasts, getBookmarks as getStoredBookmarks, parseFilters, updateEpisodePlayedAt, resetBackupProgress, incrementBackupProgress } from "./db";
+import { getExistingEpisodeUuids, updateEpisodeSyncData, insertNewEpisodes, savePodcasts, saveBookmarks, getEpisodes, getEpisodeCount, getPodcastsWithStats, getBookmarksWithEpisodes, updatePodcastEpisodeCount, parseFilters, updateEpisodePlayedAt, resetBackupProgress, incrementBackupProgress } from "./db";
 import type { EpisodeUpdate, NewEpisode } from "./db";
 import { getListenHistory } from "./history";
 import { generateEpisodesHtml, generatePodcastsHtml, generateBookmarksHtml } from "./templates";
@@ -49,7 +49,12 @@ async function processPodcastEpisodes(
   podcastAuthor: string,
   podcastSlug: string,
 ): Promise<number> {
-  const syncData = await getEpisodeSyncData(token, podcastUuid);
+  const [syncData, cacheData] = await Promise.all([
+    getEpisodeSyncData(token, podcastUuid),
+    getPodcastEpisodeMetadata(podcastUuid),
+  ]);
+
+  await updatePodcastEpisodeCount(d1, podcastUuid, cacheData.episode_count);
 
   // Filter to episodes the user has interacted with
   const interacted = syncData.episodes.filter(
@@ -88,10 +93,9 @@ async function processPodcastEpisodes(
     await updateEpisodeSyncData(d1, toUpdate);
   }
 
-  // Fetch metadata and insert new episodes
+  // Insert new episodes using already-fetched cache data
   if (newSyncItems.length > 0) {
-    console.log(`[${podcastTitle}] Fetching metadata for ${newSyncItems.length} new episodes`);
-    const cacheData = await getPodcastEpisodeMetadata(podcastUuid);
+    console.log(`[${podcastTitle}] Inserting ${newSyncItems.length} new episodes`);
 
     const cacheMap = new Map<string, CacheEpisode>();
     for (const ep of cacheData.podcast.episodes) {
@@ -127,7 +131,6 @@ async function processPodcastEpisodes(
     }
 
     if (toInsert.length > 0) {
-      console.log(`[${podcastTitle}] Inserting ${toInsert.length} new episodes`);
       await insertNewEpisodes(d1, toInsert);
     }
   }
@@ -252,7 +255,7 @@ async function handlePodcasts(request: Request, env: Env): Promise<Response> {
   }
 
   try {
-    const podcasts = await getPodcasts(env.DB);
+    const podcasts = await getPodcastsWithStats(env.DB);
     const html = generatePodcastsHtml(podcasts, password);
     return new Response(html, {
       headers: { "Content-Type": "text/html" },
@@ -272,7 +275,7 @@ async function handleBookmarks(request: Request, env: Env): Promise<Response> {
   }
 
   try {
-    const bookmarks = await getStoredBookmarks(env.DB);
+    const bookmarks = await getBookmarksWithEpisodes(env.DB);
     const html = generateBookmarksHtml(bookmarks, password);
     return new Response(html, {
       headers: { "Content-Type": "text/html" },

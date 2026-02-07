@@ -1,0 +1,1 @@
+ALTER TABLE podcasts ADD COLUMN episode_count INTEGER NOT NULL DEFAULT 0;

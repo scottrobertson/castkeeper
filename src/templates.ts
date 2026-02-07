@@ -1,5 +1,5 @@
-import type { StoredEpisode, StoredPodcast, StoredBookmark } from "./schema";
-import type { EpisodeFilter } from "./db";
+import type { StoredEpisode } from "./schema";
+import type { EpisodeFilter, PodcastWithStats, BookmarkWithEpisode } from "./db";
 
 export function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -269,24 +269,34 @@ export function generateEpisodesHtml(episodes: StoredEpisode[], totalEpisodes: n
   return layout("Pocketcasts Episodes", password, content);
 }
 
-function generatePodcastHtml(podcast: StoredPodcast): string {
-  const addedDate = new Date(podcast.date_added).toLocaleDateString();
-  const isDeleted = podcast.deleted_at !== null;
-  const deletedDate = isDeleted ? new Date(podcast.deleted_at!).toLocaleDateString() : null;
+const PODCAST_GRID = '1fr 64px 56px 100px 80px';
 
+function podcastHeaderRow(): string {
   return `
-    <div class="bg-[#111113] border border-[#1f1f23] rounded-lg p-3 hover:border-[#27272a] transition-colors duration-150${isDeleted ? ' opacity-60' : ''}">
-        <div class="text-[#ededef] text-[13px] font-medium">
-            ${podcast.title}
-            ${isDeleted ? `<span class="ml-2 bg-red-500/10 text-red-400 text-[11px] font-medium px-2 py-0.5 rounded-full">Removed ${deletedDate}</span>` : ''}
-        </div>
-        <div class="text-[#71717a] text-xs mt-1">${podcast.author}</div>
-        <div class="text-[#888] text-xs mt-2 leading-relaxed">${podcast.description}</div>
-        <div class="text-[#555] text-xs mt-1">Added: ${addedDate}</div>
+    <div class="grid items-center px-3 h-8 border-b border-white/[0.06]" style="grid-template-columns: ${PODCAST_GRID}; gap: 8px">
+        <div class="text-[11px] uppercase tracking-wider text-[#555] font-medium">Podcast</div>
+        <div class="text-[11px] uppercase tracking-wider text-[#555] font-medium">Episodes</div>
+        <div class="text-[11px] uppercase tracking-wider text-[#555] font-medium">Played</div>
+        <div class="text-[11px] uppercase tracking-wider text-[#555] font-medium">Listened</div>
+        <div class="text-[11px] uppercase tracking-wider text-[#555] font-medium">Added</div>
     </div>`;
 }
 
-export function generatePodcastsHtml(podcasts: StoredPodcast[], password: string | null): string {
+function generatePodcastRow(podcast: PodcastWithStats): string {
+  return `
+    <div class="grid items-center px-3 h-[52px] border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150" style="grid-template-columns: ${PODCAST_GRID}; gap: 8px">
+        <div class="min-w-0">
+            <div class="text-[#ededef] text-[13px] font-medium truncate">${podcast.title}</div>
+            <div class="text-[#71717a] text-xs truncate">${podcast.author}</div>
+        </div>
+        <div class="text-[#71717a] text-xs">${podcast.episode_count || '—'}</div>
+        <div class="text-[#71717a] text-xs">${podcast.played_count || '—'}</div>
+        <div class="text-[#71717a] text-xs">${podcast.total_played_time > 0 ? formatDuration(podcast.total_played_time) : '—'}</div>
+        <div class="text-[#555] text-xs">${formatRelativeDate(podcast.date_added)}</div>
+    </div>`;
+}
+
+export function generatePodcastsHtml(podcasts: PodcastWithStats[], password: string | null): string {
   const active = podcasts.filter(p => p.deleted_at === null);
   const deleted = podcasts.filter(p => p.deleted_at !== null);
 
@@ -297,36 +307,37 @@ export function generatePodcastsHtml(podcasts: StoredPodcast[], password: string
             ${active.length} subscribed${deleted.length > 0 ? ` · ${deleted.length} removed` : ''}
         </span>
     </div>
-    <div class="flex flex-col gap-2">
-        ${active.map(p => generatePodcastHtml(p)).join('')}
+    <div>
+        ${podcastHeaderRow()}
+        ${active.map(p => generatePodcastRow(p)).join('')}
     </div>
     ${deleted.length > 0 ? `
-    <div class="text-[11px] uppercase tracking-wider text-[#71717a] font-medium mt-8 mb-3 pb-2 border-b border-[#1f1f23]">Removed Podcasts</div>
-    <div class="flex flex-col gap-2">
-        ${deleted.map(p => generatePodcastHtml(p)).join('')}
+    <div class="flex items-center gap-3 mt-5 mb-2"><span class="text-[11px] uppercase tracking-wider text-[#71717a] font-medium whitespace-nowrap">Removed</span><div class="h-px bg-white/[0.06] flex-1"></div></div>
+    <div>
+        ${deleted.map(p => `<div class="opacity-60">${generatePodcastRow(p)}</div>`).join('')}
     </div>` : ''}`;
 
   return layout("Pocketcasts Podcasts", password, content);
 }
 
-function generateBookmarkHtml(bookmark: StoredBookmark): string {
-  const createdDate = new Date(bookmark.created_at).toLocaleDateString();
-  const isDeleted = bookmark.deleted_at !== null;
-  const deletedDate = isDeleted ? new Date(bookmark.deleted_at!).toLocaleDateString() : null;
+function generateBookmarkRow(bookmark: BookmarkWithEpisode): string {
+  const subtitle = bookmark.episode_title
+    ? `${bookmark.episode_title}${bookmark.podcast_title ? ` · ${bookmark.podcast_title}` : ''}`
+    : '';
 
   return `
-    <div class="bg-[#111113] border border-[#1f1f23] rounded-lg p-3 hover:border-[#27272a] transition-colors duration-150${isDeleted ? ' opacity-60' : ''}">
-        <div class="text-[#ededef] text-[13px] font-medium">
-            ${bookmark.title}
-            ${isDeleted ? `<span class="ml-2 bg-red-500/10 text-red-400 text-[11px] font-medium px-2 py-0.5 rounded-full">Removed ${deletedDate}</span>` : ''}
+    <div class="grid items-center px-3 h-[52px] border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150" style="grid-template-columns: 16px 1fr 80px 64px; gap: 8px">
+        <div class="flex justify-center"><svg class="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M5 2h14a1 1 0 0 1 1 1v19.143a.5.5 0 0 1-.766.424L12 18.03l-7.234 4.536A.5.5 0 0 1 4 22.143V3a1 1 0 0 1 1-1z"/></svg></div>
+        <div class="min-w-0">
+            <div class="text-[#ededef] text-[13px] font-medium truncate">${bookmark.title}</div>
+            ${subtitle ? `<div class="text-[#71717a] text-xs truncate">${subtitle}</div>` : ''}
         </div>
-        <div class="text-[#555] text-xs mt-1">
-            at ${formatDuration(bookmark.time)} · ${createdDate}
-        </div>
+        <div class="text-[#71717a] text-xs text-right">${formatDuration(bookmark.time)}</div>
+        <div class="text-[#555] text-xs text-right">${formatRelativeDate(bookmark.created_at)}</div>
     </div>`;
 }
 
-export function generateBookmarksHtml(bookmarks: StoredBookmark[], password: string | null): string {
+export function generateBookmarksHtml(bookmarks: BookmarkWithEpisode[], password: string | null): string {
   const active = bookmarks.filter(b => b.deleted_at === null);
   const deleted = bookmarks.filter(b => b.deleted_at !== null);
 
@@ -337,13 +348,13 @@ export function generateBookmarksHtml(bookmarks: StoredBookmark[], password: str
             ${active.length} bookmarks${deleted.length > 0 ? ` · ${deleted.length} removed` : ''}
         </span>
     </div>
-    <div class="flex flex-col gap-2">
-        ${active.map(b => generateBookmarkHtml(b)).join('')}
+    <div>
+        ${active.map(b => generateBookmarkRow(b)).join('')}
     </div>
     ${deleted.length > 0 ? `
-    <div class="text-[11px] uppercase tracking-wider text-[#71717a] font-medium mt-8 mb-3 pb-2 border-b border-[#1f1f23]">Removed Bookmarks</div>
-    <div class="flex flex-col gap-2">
-        ${deleted.map(b => generateBookmarkHtml(b)).join('')}
+    <div class="flex items-center gap-3 mt-5 mb-2"><span class="text-[11px] uppercase tracking-wider text-[#71717a] font-medium whitespace-nowrap">Removed</span><div class="h-px bg-white/[0.06] flex-1"></div></div>
+    <div>
+        ${deleted.map(b => `<div class="opacity-60">${generateBookmarkRow(b)}</div>`).join('')}
     </div>` : ''}`;
 
   return layout("Pocketcasts Bookmarks", password, content);
