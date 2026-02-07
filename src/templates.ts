@@ -209,47 +209,62 @@ export function generateEpisodesHtml(episodes: StoredEpisode[], totalEpisodes: n
   const totalPages = Math.ceil(totalEpisodes / perPage);
   const activeFilters = new Set(filters);
 
-  const filterButtons = FILTER_OPTIONS.map(opt => {
+  const filterOptions = FILTER_OPTIONS.map(opt => {
     const isActive = activeFilters.has(opt.value);
     const nextFilters = isActive
       ? filters.filter(f => f !== opt.value)
       : [...filters, opt.value];
     const href = `/episodes${buildEpisodeParams(password, nextFilters)}`;
-    const style = isActive
-      ? 'bg-white/[0.08] border-[#3ecf8e]/40 text-[#3ecf8e]'
-      : 'bg-transparent border-[#27272a] text-[#71717a] hover:text-[#fafafa] hover:border-[#3a3a3a]';
-    return `<a href="${href}" class="px-2.5 h-7 inline-flex items-center text-xs font-medium rounded-md border ${style} transition-all duration-150">${opt.label}</a>`;
-  }).join('');
+    const icon = isActive
+      ? `<svg class="w-3.5 h-3.5 text-[#3ecf8e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`
+      : `<div class="w-3.5 h-3.5 rounded border border-[#555]"></div>`;
+    return `<a href="${href}" class="flex items-center gap-2.5 px-3 py-1.5 text-[13px] ${isActive ? 'text-[#fafafa]' : 'text-[#999]'} hover:bg-white/[0.04] transition-colors duration-150">${icon} ${opt.label}</a>`;
+  }).join('\n            ');
+
+  const filterCount = filters.length;
+  const funnelColor = filterCount > 0 ? 'text-[#fafafa]' : 'text-[#555]';
+  const countBadge = filterCount > 0 ? `<span class="text-[#3ecf8e] text-xs font-medium ml-0.5">(${filterCount})</span>` : '';
 
   const content = `
     <div class="flex items-center justify-between mb-4">
-        <h1 class="text-base font-semibold text-[#fafafa] tracking-tight">Episodes</h1>
+        <div class="flex items-center gap-3">
+            <h1 class="text-base font-semibold text-[#fafafa] tracking-tight">Episodes</h1>
+            <div class="relative" id="filter-dropdown">
+                <button onclick="document.getElementById('filter-dropdown').classList.toggle('open')" class="flex items-center gap-1 px-2 h-7 rounded-md border ${filterCount > 0 ? 'border-[#3ecf8e]/40' : 'border-[#27272a]'} ${funnelColor} hover:text-[#fafafa] hover:bg-white/[0.04] transition-all duration-150">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                    ${countBadge}
+                </button>
+                <div class="hidden absolute left-0 top-full mt-1 py-1 bg-[#1a1a1e] border border-[#27272a] rounded-lg shadow-xl z-20 min-w-[160px]" id="filter-panel">
+                    ${filterOptions}
+                </div>
+            </div>
+        </div>
         <div class="flex items-center gap-3">
             <span class="text-xs text-[#71717a]">${totalEpisodes} episodes</span>
             <a href="/export${buildEpisodeParams(password, filters)}" class="h-8 inline-flex items-center px-3 text-xs font-medium rounded-md border border-[#27272a] text-[#fafafa] hover:bg-white/[0.04] transition-all duration-150">Download CSV</a>
         </div>
     </div>
-    <div class="flex flex-wrap items-center gap-2 mb-3">
-        ${filterButtons}
-        ${filters.length > 0 ? `<a href="/episodes${buildEpisodeParams(password, [])}" class="px-2.5 h-7 inline-flex items-center text-xs font-medium rounded-md text-[#555] hover:text-[#71717a] transition-colors duration-150">Clear</a>` : ''}
-        ${filters.length > 1 ? `<span class="text-[11px] text-[#555] ml-1">Matching all selected</span>` : ''}
-    </div>
-    <div class="px-3 grid items-center" style="grid-template-columns: 16px 1fr 24px 120px 52px; gap: 8px">
-        <div></div>
-        <div></div>
-        <div></div>
-        <div class="text-[11px] uppercase tracking-wider text-[#71717a] font-medium py-2">Progress</div>
-        <div class="text-[11px] uppercase tracking-wider text-[#71717a] font-medium py-2 text-right">Played</div>
-    </div>
+    ${episodes.length === 0 && filters.length > 0 ? `
+    <div class="flex flex-col items-center justify-center py-16 text-center">
+        <p class="text-[#71717a] text-sm">No episodes match these filters</p>
+        <a href="/episodes${password ? `?password=${encodeURIComponent(password)}` : ''}" class="text-[#3ecf8e] text-sm mt-2 hover:underline">Clear filters</a>
+    </div>` : `
     <div>
         ${generateGroupedEpisodesHtml(episodes)}
-    </div>
+    </div>`}
     ${totalPages > 1 ? `
     <div class="flex items-center justify-center gap-2 mt-6">
         ${page > 1 ? `<a href="/episodes${buildEpisodeParams(password, filters, page - 1)}" class="h-8 inline-flex items-center px-3 text-xs font-medium rounded-md border border-[#27272a] text-[#71717a] hover:text-[#fafafa] hover:bg-white/[0.04] transition-all duration-150">Previous</a>` : ''}
         <span class="text-xs text-[#555]">Page ${page} of ${totalPages}</span>
         ${page < totalPages ? `<a href="/episodes${buildEpisodeParams(password, filters, page + 1)}" class="h-8 inline-flex items-center px-3 text-xs font-medium rounded-md border border-[#27272a] text-[#71717a] hover:text-[#fafafa] hover:bg-white/[0.04] transition-all duration-150">Next</a>` : ''}
-    </div>` : ''}`;
+    </div>` : ''}
+    <style>#filter-dropdown.open #filter-panel { display: block; }</style>
+    <script>
+        document.addEventListener('click', function(e) {
+            var dd = document.getElementById('filter-dropdown');
+            if (dd && !dd.contains(e.target)) dd.classList.remove('open');
+        });
+    </script>`;
 
   return layout("Pocketcasts Episodes", password, content);
 }

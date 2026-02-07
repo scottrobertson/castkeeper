@@ -206,7 +206,20 @@ describe("generateEpisodesHtml", () => {
 
   it("highlights active filters", () => {
     const html = generateEpisodesHtml([], 0, 1, 50, "pass", ["starred"]);
-    expect(html).toContain("bg-white/[0.08] border-[#3ecf8e]/40 text-[#3ecf8e]");
+    expect(html).toContain("(1)");
+    // Active filter toggle URL should remove the filter (not include it)
+    expect(html).toMatch(/href="\/episodes\?password=pass".*Starred/s);
+  });
+
+  it("shows empty state when filters match nothing", () => {
+    const html = generateEpisodesHtml([], 0, 1, 50, "pass", ["starred"]);
+    expect(html).toContain("No episodes match these filters");
+    expect(html).toContain("Clear filters");
+  });
+
+  it("does not show empty state without filters", () => {
+    const html = generateEpisodesHtml([], 0, 1, 50, "pass");
+    expect(html).not.toContain("No episodes match these filters");
   });
 
   it("preserves filters in pagination links", () => {
