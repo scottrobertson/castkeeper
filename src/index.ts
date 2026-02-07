@@ -2,14 +2,14 @@
 
 import { login } from "./login";
 import { getEpisodeSyncData, getPodcastEpisodeMetadata, getPodcastList, getBookmarks } from "./api";
-import { getExistingEpisodeUuids, updateEpisodeSyncData, insertNewEpisodes, savePodcasts, saveBookmarks, getEpisodes, getEpisodeCount, getPodcasts, getBookmarks as getStoredBookmarks, parseFilters, updateEpisodePlayedAt } from "./db";
+import { getExistingEpisodeUuids, updateEpisodeSyncData, insertNewEpisodes, savePodcasts, saveBookmarks, getEpisodes, getEpisodeCount, getPodcasts, getBookmarks as getStoredBookmarks, parseFilters, updateEpisodePlayedAt, resetBackupProgress, incrementBackupProgress } from "./db";
 import type { EpisodeUpdate, NewEpisode } from "./db";
 import { getListenHistory } from "./history";
 import { generateEpisodesHtml, generatePodcastsHtml, generateBookmarksHtml } from "./templates";
 import { generateCsv } from "./csv";
-import type { Env, BackupResult, ExportedHandler, EpisodeSyncItem, CacheEpisode } from "./types";
+import type { Env, BackupResult, BackupQueueMessage, EpisodeSyncItem, CacheEpisode } from "./types";
 
-const worker: ExportedHandler<Env> = {
+export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
@@ -30,13 +30,16 @@ const worker: ExportedHandler<Env> = {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(handleBackup(env));
+    await handleBackup(env);
+  },
+
+  async queue(batch: MessageBatch<BackupQueueMessage>, env: Env): Promise<void> {
+    for (const msg of batch.messages) {
+      await handleQueueMessage(msg.body, env);
+      msg.ack();
+    }
   },
 };
-
-export default worker;
-
-const CONCURRENCY_LIMIT = 3;
 
 async function processPodcastEpisodes(
   token: string,
@@ -136,58 +139,78 @@ async function processPodcastEpisodes(
 async function handleBackup(env: Env): Promise<Response> {
   try {
     validateEnvironment(env);
-
-    const token = await login(env.EMAIL, env.PASS);
-    const [podcastList, bookmarkList] = await Promise.all([
-      getPodcastList(token),
-      getBookmarks(token),
-    ]);
-    const [savedPodcasts, savedBookmarks] = await Promise.all([
-      savePodcasts(env.DB, podcastList),
-      saveBookmarks(env.DB, bookmarkList),
-    ]);
-
-    // Process podcasts with concurrency limit
-    let totalSynced = 0;
-    const podcastQueue = [...podcastList.podcasts];
-
-    while (podcastQueue.length > 0) {
-      const batch = podcastQueue.splice(0, CONCURRENCY_LIMIT);
-      const results = await Promise.all(
-        batch.map((podcast) =>
-          processPodcastEpisodes(
-            token,
-            env.DB,
-            podcast.uuid,
-            podcast.title,
-            podcast.author,
-            podcast.slug,
-          )
-        )
-      );
-      totalSynced += results.reduce((sum, n) => sum + n, 0);
-    }
-
-    console.log("[History] Fetching listen history");
-    const history = await getListenHistory(token);
-    console.log(`[History] Got ${history.length} played episodes`);
-    await updateEpisodePlayedAt(env.DB, history);
-
-    const totalEpisodes = await getEpisodeCount(env.DB);
-
-    const response: BackupResult = {
-      success: true,
-      message: "Backup completed successfully",
-      synced: totalSynced,
-      total: totalEpisodes,
-      podcasts: savedPodcasts.total,
-      bookmarks: savedBookmarks.total,
-    };
-
-    return createJsonResponse(response);
+    await env.BACKUP_QUEUE.send({ type: "sync-podcasts" });
+    return createJsonResponse({ success: true, message: "Backup queued" });
   } catch (error) {
     console.error("Backup failed:", error);
     return createErrorResponse(error);
+  }
+}
+
+async function handleQueueMessage(message: BackupQueueMessage, env: Env): Promise<void> {
+  switch (message.type) {
+    case "sync-podcasts": {
+      const token = await login(env.EMAIL, env.PASS);
+      const [podcastList, bookmarkList] = await Promise.all([
+        getPodcastList(token),
+        getBookmarks(token),
+      ]);
+      await Promise.all([
+        savePodcasts(env.DB, podcastList),
+        saveBookmarks(env.DB, bookmarkList),
+      ]);
+
+      const total = podcastList.podcasts.length;
+      await resetBackupProgress(env.DB, total);
+
+      const messages: MessageSendRequest<BackupQueueMessage>[] = podcastList.podcasts.map((podcast) => ({
+        body: {
+          type: "sync-podcast" as const,
+          token,
+          podcastUuid: podcast.uuid,
+          podcastTitle: podcast.title,
+          podcastAuthor: podcast.author,
+          podcastSlug: podcast.slug,
+        },
+      }));
+
+      // sendBatch accepts up to 100 messages per call
+      for (let i = 0; i < messages.length; i += 100) {
+        await env.BACKUP_QUEUE.sendBatch(messages.slice(i, i + 100));
+      }
+
+      console.log(`[Backup] Enqueued ${total} podcast sync messages`);
+      break;
+    }
+
+    case "sync-podcast": {
+      await processPodcastEpisodes(
+        message.token,
+        env.DB,
+        message.podcastUuid,
+        message.podcastTitle,
+        message.podcastAuthor,
+        message.podcastSlug,
+      );
+
+      const progress = await incrementBackupProgress(env.DB);
+      console.log(`[Backup] Progress: ${progress.completed}/${progress.total}`);
+
+      if (progress.completed >= progress.total) {
+        await env.BACKUP_QUEUE.send({ type: "sync-history", token: message.token });
+        console.log("[Backup] All podcasts synced, enqueued history sync");
+      }
+      break;
+    }
+
+    case "sync-history": {
+      console.log("[History] Fetching listen history");
+      const history = await getListenHistory(message.token);
+      console.log(`[History] Got ${history.length} played episodes`);
+      await updateEpisodePlayedAt(env.DB, history);
+      console.log("[Backup] Complete");
+      break;
+    }
   }
 }
 

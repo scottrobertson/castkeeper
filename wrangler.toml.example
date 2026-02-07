@@ -12,5 +12,14 @@ database_name = "pocketcasts-history"
 database_id = "your-database-id-here"
 migrations_dir = "migrations"
 
+[[queues.producers]]
+queue = "pocketcasts-backup"
+binding = "BACKUP_QUEUE"
+
+[[queues.consumers]]
+queue = "pocketcasts-backup"
+max_batch_size = 1
+max_retries = 3
+
 [triggers]
 crons = ["0 * * * *"]

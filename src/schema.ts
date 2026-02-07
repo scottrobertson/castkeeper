@@ -60,6 +60,12 @@ export const bookmarks = sqliteTable("bookmarks", {
   raw_data: text("raw_data").notNull(),
 });
 
+export const backupProgress = sqliteTable("backup_progress", {
+  id: integer("id").primaryKey().default(1),
+  total: integer("total").notNull(),
+  completed: integer("completed").notNull().default(0),
+});
+
 export type StoredEpisode = InferSelectModel<typeof episodes>;
 export type StoredPodcast = InferSelectModel<typeof podcasts>;
 export type StoredBookmark = InferSelectModel<typeof bookmarks>;

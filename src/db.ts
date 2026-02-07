@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/d1";
 import type { BatchItem } from "drizzle-orm/batch";
 import { eq, and, count, desc, asc, inArray, isNull, isNotNull, sql } from "drizzle-orm";
-import { episodes, podcasts, bookmarks } from "./schema";
+import { episodes, podcasts, bookmarks, backupProgress } from "./schema";
 import type { StoredEpisode, StoredPodcast, StoredBookmark } from "./schema";
 import type { PodcastListResponse, BookmarkListResponse } from "./types";
 import type { HistoryEntry } from "./history";
@@ -329,6 +329,25 @@ export async function getBookmarks(d1: D1Database): Promise<StoredBookmark[]> {
   const db = getDb(d1);
   return db.select().from(bookmarks)
     .orderBy(sql`deleted_at IS NOT NULL`, desc(bookmarks.created_at));
+}
+
+export async function resetBackupProgress(d1: D1Database, total: number): Promise<void> {
+  const db = getDb(d1);
+  await db.insert(backupProgress).values({ id: 1, total, completed: 0 })
+    .onConflictDoUpdate({
+      target: backupProgress.id,
+      set: { total, completed: 0 },
+    });
+}
+
+export async function incrementBackupProgress(d1: D1Database): Promise<{ completed: number; total: number }> {
+  const db = getDb(d1);
+  await db.update(backupProgress)
+    .set({ completed: sql`completed + 1` })
+    .where(eq(backupProgress.id, 1));
+
+  const row = await db.select().from(backupProgress).where(eq(backupProgress.id, 1));
+  return { completed: row[0].completed, total: row[0].total };
 }
 
 export async function updateEpisodePlayedAt(d1: D1Database, entries: HistoryEntry[]): Promise<void> {

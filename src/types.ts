@@ -86,11 +86,17 @@ export interface BookmarkListResponse {
   bookmarks: Bookmark[];
 }
 
+export type BackupQueueMessage =
+  | { type: "sync-podcasts" }
+  | { type: "sync-podcast"; token: string; podcastUuid: string; podcastTitle: string; podcastAuthor: string; podcastSlug: string }
+  | { type: "sync-history"; token: string };
+
 export interface Env {
   DB: D1Database;
   EMAIL: string;
   PASS: string;
   ENVIRONMENT?: string;
+  BACKUP_QUEUE: Queue<BackupQueueMessage>;
 }
 
 export interface BackupResult {
@@ -103,9 +109,4 @@ export interface BackupResult {
   bookmarks?: number;
 }
 
-
-export type ExportedHandler<Env = unknown> = {
-  fetch?: (request: Request, env: Env, ctx: ExecutionContext) => Response | Promise<Response>;
-  scheduled?: (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => void | Promise<void>;
-};
 

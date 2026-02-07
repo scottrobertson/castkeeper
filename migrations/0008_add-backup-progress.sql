@@ -1,0 +1,5 @@
+CREATE TABLE backup_progress (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  total INTEGER NOT NULL,
+  completed INTEGER NOT NULL DEFAULT 0
+);
