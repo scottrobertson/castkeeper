@@ -35,9 +35,10 @@ function layout(title: string, password: string | null, content: string): string
 </head>
 <body class="bg-[#0a0a0a] min-h-screen overflow-y-scroll">
     <nav class="bg-[#111113] border-b border-[#1f1f23] sticky top-0 z-10">
-        <div class="max-w-4xl mx-auto px-6 h-12 flex items-center justify-between">
+        <div class="max-w-4xl mx-auto px-3 sm:px-6 h-12 flex items-center justify-between">
             <div class="flex items-center gap-6">
-                <span class="text-[#fafafa] font-semibold text-sm">Pocketcasts Backup</span>
+                <span class="text-[#fafafa] font-semibold text-sm hidden sm:inline">Pocketcasts Backup</span>
+                <svg class="w-5 h-5 text-[#fafafa] sm:hidden shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <div class="flex gap-4">
                     <a href="/episodes${params}" class="text-[13px] font-medium text-[#71717a] hover:text-[#fafafa] transition-colors duration-150">Episodes</a>
                     <a href="/podcasts${params}" class="text-[13px] font-medium text-[#71717a] hover:text-[#fafafa] transition-colors duration-150">Podcasts</a>
@@ -46,12 +47,12 @@ function layout(title: string, password: string | null, content: string): string
             </div>
             <div class="flex items-center gap-3">
                 <span id="backup-status" class="text-xs"></span>
-                <button onclick="runBackup()" class="bg-[#3ecf8e] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-[#0a0a0a] text-xs font-medium px-3 h-8 rounded-md transition-all duration-150">Backup Now</button>
+                <button onclick="runBackup()" class="bg-[#3ecf8e] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-[#0a0a0a] text-[11px] sm:text-xs font-medium px-2 sm:px-3 h-7 sm:h-8 rounded-md transition-all duration-150">Backup Now</button>
             </div>
         </div>
     </nav>
 
-    <main class="max-w-4xl mx-auto px-6 py-6">
+    <main class="max-w-4xl mx-auto px-3 sm:px-6 py-6">
         ${content}
     </main>
 
@@ -151,7 +152,7 @@ function generateEpisodeHtml(episode: StoredEpisode): string {
   if (episode.is_deleted) icons.push(`<span class="text-zinc-500" title="Archived"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V21H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></span>`);
 
   return `
-    <div class="grid items-center px-3 h-[52px] border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150" style="grid-template-columns: 16px 1fr 24px 120px 52px; gap: 8px">
+    <div class="grid items-center px-1 sm:px-3 h-[52px] border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150" style="grid-template-columns: 16px 1fr 24px 120px 52px; gap: 8px">
         ${statusDot(episode)}
         <div class="min-w-0">
             <div class="text-[#ededef] text-[13px] font-medium truncate">${episode.title}</div>
@@ -307,15 +308,15 @@ export function generatePodcastsHtml(podcasts: PodcastWithStats[], password: str
             ${active.length} subscribed${deleted.length > 0 ? ` · ${deleted.length} removed` : ''}
         </span>
     </div>
-    <div>
+    <div class="overflow-x-auto"><div class="min-w-[540px]">
         ${podcastHeaderRow()}
         ${active.map(p => generatePodcastRow(p)).join('')}
-    </div>
+    </div></div>
     ${deleted.length > 0 ? `
     <div class="flex items-center gap-3 mt-5 mb-2"><span class="text-[11px] uppercase tracking-wider text-[#71717a] font-medium whitespace-nowrap">Removed</span><div class="h-px bg-white/[0.06] flex-1"></div></div>
-    <div>
+    <div class="overflow-x-auto"><div class="min-w-[540px]">
         ${deleted.map(p => `<div class="opacity-60">${generatePodcastRow(p)}</div>`).join('')}
-    </div>` : ''}`;
+    </div></div>` : ''}`;
 
   return layout("Pocketcasts Podcasts", password, content);
 }
