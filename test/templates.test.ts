@@ -117,7 +117,7 @@ describe("formatRelativeDate", () => {
 describe("generateEpisodesHtml", () => {
   it("includes the total episode count", () => {
     const html = generateEpisodesHtml([], 42, 1, 50, "pass");
-    expect(html).toContain("42");
+    expect(html).toContain("42 episodes");
   });
 
   it("includes episode titles", () => {
@@ -146,17 +146,20 @@ describe("generateEpisodesHtml", () => {
 
   it("shows Played badge for finished episodes", () => {
     const html = generateEpisodesHtml([makeEpisode({ playing_status: 3 })], 1, 1, 50, "pass");
-    expect(html).toContain("Played");
+    // "Played" appears once as a filter label on every page; the episode status adds a second occurrence
+    expect((html.match(/Played/g) || []).length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows In Progress badge for partially played episodes", () => {
     const html = generateEpisodesHtml([makeEpisode({ playing_status: 2, played_up_to: 300 })], 1, 1, 50, "pass");
-    expect(html).toContain("In Progress");
+    // "In Progress" appears once as a filter label on every page; the episode status adds a second occurrence
+    expect((html.match(/In Progress/g) || []).length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows Archived badge for deleted episodes", () => {
     const html = generateEpisodesHtml([makeEpisode({ is_deleted: 1 })], 1, 1, 50, "pass");
-    expect(html).toContain("Archived");
+    // Filter label uses plain text; the episode icon uses title="Archived"
+    expect(html).toContain('title="Archived"');
   });
 
 
@@ -193,7 +196,9 @@ describe("generateEpisodesHtml", () => {
 
   it("shows Starred badge for starred episodes", () => {
     const html = generateEpisodesHtml([makeEpisode({ starred: 1 })], 1, 1, 50, "pass");
-    expect(html).toContain("Starred");
+    // Filter label uses plain text; the episode star icon uses title="Starred"
+    expect(html).toContain('title="Starred"');
+    expect(html).toContain("★");
   });
 
   it("shows filter buttons", () => {
