@@ -398,21 +398,41 @@ export async function incrementBackupProgress(d1: D1Database): Promise<{ complet
   return { completed: row[0].completed, total: row[0].total };
 }
 
-export async function updateEpisodePlayedAt(d1: D1Database, entries: HistoryEntry[]): Promise<void> {
-  if (entries.length === 0) return;
+export async function updateEpisodePlayedAt(d1: D1Database, entries: HistoryEntry[]): Promise<{ updated: number; skipped: number }> {
+  if (entries.length === 0) return { updated: 0, skipped: 0 };
 
   const db = getDb(d1);
 
-  const stmts = entries.map((entry) => {
-    return db.update(episodes)
-      .set({ played_at: entry.played_at })
-      .where(and(
-        eq(episodes.uuid, entry.uuid),
-        isNull(episodes.played_at),
-      ));
+  // Look up current played_at values so we can skip episodes that are already up to date
+  const uuids = entries.map(e => e.uuid);
+  const currentValues = new Map<string, string | null>();
+  for (let i = 0; i < uuids.length; i += BATCH_SIZE) {
+    const chunk = uuids.slice(i, i + BATCH_SIZE);
+    const rows = await db.select({ uuid: episodes.uuid, played_at: episodes.played_at })
+      .from(episodes)
+      .where(inArray(episodes.uuid, chunk));
+    for (const r of rows) currentValues.set(r.uuid, r.played_at);
+  }
+
+  // Only update if the new played_at is more recent or wasn't set before
+  const toUpdate = entries.filter(e => {
+    const current = currentValues.get(e.uuid);
+    if (current === undefined) return false; // episode not in DB
+    if (current === null) return true; // no played_at yet
+    return e.played_at > current; // newer timestamp
   });
 
-  await batchExecute(db, stmts);
+  if (toUpdate.length > 0) {
+    const stmts = toUpdate.map((entry) => {
+      return db.update(episodes)
+        .set({ played_at: entry.played_at })
+        .where(eq(episodes.uuid, entry.uuid));
+    });
+
+    await batchExecute(db, stmts);
+  }
+
+  return { updated: toUpdate.length, skipped: entries.length - toUpdate.length };
 }
 
 export async function getPodcastsWithStats(d1: D1Database): Promise<PodcastWithStats[]> {

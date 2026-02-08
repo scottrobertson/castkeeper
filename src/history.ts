@@ -40,6 +40,7 @@ export async function getListenHistory(token: string): Promise<HistoryEntry[]> {
   for (let year = currentYear; year >= 2010; year--) {
     const countRes = await fetchHistoryYear(token, year, true);
     const total = countRes.count ?? 0;
+    console.log(`[History] ${year}: API reports ${total} entries`);
 
     if (total === 0) {
       console.log(`[History] ${year}: no episodes, stopping`);
@@ -48,19 +49,22 @@ export async function getListenHistory(token: string): Promise<HistoryEntry[]> {
 
     const fullRes = await fetchHistoryYear(token, year, false);
     const changes = fullRes.history?.changes ?? [];
+    const playActions = changes.filter(c => c.action === 1);
+    const skippedActions = changes.length - playActions.length;
 
     let newCount = 0;
-    for (const change of changes) {
-      if (change.action !== 1) continue;
-
+    let duplicateCount = 0;
+    for (const change of playActions) {
       const existing = seen.get(change.episode);
       if (existing === undefined) {
         seen.set(change.episode, change.modifiedAt);
         newCount++;
+      } else {
+        duplicateCount++;
       }
     }
 
-    console.log(`[History] ${year}: ${changes.length} entries (${newCount} new, ${seen.size} unique episodes)`);
+    console.log(`[History] ${year}: ${changes.length} changes, ${playActions.length} plays (${newCount} new, ${duplicateCount} already seen from later year, ${skippedActions} non-play actions skipped)`);
   }
 
   const entries: HistoryEntry[] = [];
@@ -70,5 +74,12 @@ export async function getListenHistory(token: string): Promise<HistoryEntry[]> {
       played_at: new Date(Number(modifiedAt)).toISOString(),
     });
   }
+
+  if (entries.length > 0) {
+    const newest = entries.reduce((a, b) => a.played_at > b.played_at ? a : b);
+    const oldest = entries.reduce((a, b) => a.played_at < b.played_at ? a : b);
+    console.log(`[History] ${entries.length} total unique episodes, date range: ${oldest.played_at} to ${newest.played_at}`);
+  }
+
   return entries;
 }

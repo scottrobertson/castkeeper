@@ -71,10 +71,12 @@ async function syncPodcast(
 }
 
 async function syncHistory(token: string, d1: D1Database): Promise<void> {
-  console.log("[History] Fetching listen history");
+  console.log("[History] Fetching listen history from API");
   const history = await getListenHistory(token);
-  console.log(`[History] Got ${history.length} played episodes`);
-  await updateEpisodePlayedAt(d1, history);
+  console.log(`[History] Got ${history.length} unique played episodes from API`);
+
+  const { updated, skipped } = await updateEpisodePlayedAt(d1, history);
+  console.log(`[History] DB update: ${updated} episodes updated, ${skipped} already had played_at set`);
   console.log("[Backup] Complete");
 }
 
