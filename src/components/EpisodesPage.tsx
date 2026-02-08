@@ -112,6 +112,7 @@ const FILTER_OPTIONS: { value: EpisodeFilter; label: string }[] = [
   { value: "in_progress", label: "In Progress" },
   { value: "played", label: "Played" },
   { value: "not_started", label: "Not Started" },
+  { value: "not_archived", label: "Not Archived" },
   { value: "archived", label: "Archived" },
   { value: "starred", label: "Starred" },
 ];

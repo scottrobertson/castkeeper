@@ -180,9 +180,9 @@ export async function insertNewEpisodes(d1: D1Database, newEpisodes: NewEpisode[
   await batchExecute(db, stmts);
 }
 
-export type EpisodeFilter = "archived" | "in_progress" | "played" | "not_started" | "starred";
+export type EpisodeFilter = "archived" | "not_archived" | "in_progress" | "played" | "not_started" | "starred";
 
-const VALID_FILTERS = new Set<string>(["archived", "in_progress", "played", "not_started", "starred"]);
+const VALID_FILTERS = new Set<string>(["archived", "not_archived", "in_progress", "played", "not_started", "starred"]);
 
 export function parseFilters(values: string[]): EpisodeFilter[] {
   return values.filter(v => VALID_FILTERS.has(v)) as EpisodeFilter[];
@@ -192,6 +192,7 @@ function buildFilterConditions(filters: EpisodeFilter[]) {
   return filters.map(f => {
     switch (f) {
       case "archived": return eq(episodes.is_deleted, 1);
+      case "not_archived": return eq(episodes.is_deleted, 0);
       case "in_progress": return eq(episodes.playing_status, 2);
       case "played": return eq(episodes.playing_status, 3);
       case "not_started": return eq(episodes.playing_status, 1);

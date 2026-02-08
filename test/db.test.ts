@@ -405,8 +405,8 @@ describe("parseFilters", () => {
   });
 
   it("accepts all valid filter values", () => {
-    const result = parseFilters(["archived", "in_progress", "played", "not_started", "starred"]);
-    expect(result).toEqual(["archived", "in_progress", "played", "not_started", "starred"]);
+    const result = parseFilters(["archived", "not_archived", "in_progress", "played", "not_started", "starred"]);
+    expect(result).toEqual(["archived", "not_archived", "in_progress", "played", "not_started", "starred"]);
   });
 });
 
@@ -454,6 +454,17 @@ describe("getEpisodes with filters", () => {
     const archived = await getEpisodes(env.DB, undefined, undefined, ["archived"]);
     expect(archived).toHaveLength(1);
     expect(archived[0].uuid).toBe("ep-archived");
+  });
+
+  it("filters by not_archived", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-archived", is_deleted: 1 }),
+      makeNewEpisode({ uuid: "ep-active", is_deleted: 0 }),
+    ]);
+
+    const notArchived = await getEpisodes(env.DB, undefined, undefined, ["not_archived"]);
+    expect(notArchived).toHaveLength(1);
+    expect(notArchived[0].uuid).toBe("ep-active");
   });
 
   it("filters by not_started status", async () => {
