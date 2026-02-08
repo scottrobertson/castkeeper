@@ -19,39 +19,39 @@ function makeBookmark(overrides: Partial<BookmarkWithEpisode> = {}): BookmarkWit
   };
 }
 
-function render(bookmarks: BookmarkWithEpisode[], password: string | null): string {
-  return (<BookmarksPage bookmarks={bookmarks} password={password} />).toString();
+function render(bookmarks: BookmarkWithEpisode[]): string {
+  return (<BookmarksPage bookmarks={bookmarks} />).toString();
 }
 
 describe("BookmarksPage", () => {
   it("includes bookmark titles", () => {
-    const html = render([makeBookmark({ title: "Great Moment" })], "pass");
+    const html = render([makeBookmark({ title: "Great Moment" })]);
     expect(html).toContain("Great Moment");
   });
 
   it("includes formatted bookmark time", () => {
-    const html = render([makeBookmark({ time: 3661 })], "pass");
+    const html = render([makeBookmark({ time: 3661 })]);
     expect(html).toContain("1h 1m 1s");
   });
 
   it("shows removed section for deleted bookmarks", () => {
-    const html = render([makeBookmark({ deleted_at: "2024-06-01T00:00:00Z" })], "pass");
+    const html = render([makeBookmark({ deleted_at: "2024-06-01T00:00:00Z" })]);
     expect(html).toContain("Removed");
   });
 
   it("shows active count", () => {
-    const html = render([makeBookmark(), makeBookmark({ bookmark_uuid: "bm-2" })], "pass");
+    const html = render([makeBookmark(), makeBookmark({ bookmark_uuid: "bm-2" })]);
     expect(html).toContain("2 bookmarks");
   });
 
   it("shows episode title and podcast title", () => {
-    const html = render([makeBookmark({ episode_title: "Great Episode", podcast_title: "Cool Podcast" })], "pass");
+    const html = render([makeBookmark({ episode_title: "Great Episode", podcast_title: "Cool Podcast" })]);
     expect(html).toContain("Great Episode");
     expect(html).toContain("Cool Podcast");
   });
 
   it("handles null episode data gracefully", () => {
-    const html = render([makeBookmark({ episode_title: null, podcast_title: null, episode_duration: null })], "pass");
+    const html = render([makeBookmark({ episode_title: null, podcast_title: null, episode_duration: null })]);
     expect(html).toContain("Test Bookmark");
   });
 });

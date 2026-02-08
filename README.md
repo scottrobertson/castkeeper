@@ -89,13 +89,14 @@ It also fetches your current podcast subscriptions and bookmarks on each run. If
 
 | Path | Description |
 |---|---|
+| `/` | Login page |
+| `/episodes` | Browse your episodes with pagination |
+| `/podcasts` | View your podcast subscriptions |
+| `/bookmarks` | View your bookmarks |
+| `/export` | Download your full episode history as CSV |
 | `/backup` | Triggers a backup manually |
-| `/episodes?password=YOUR_PASS` | Browse your episodes with pagination |
-| `/podcasts?password=YOUR_PASS` | View your podcast subscriptions |
-| `/bookmarks?password=YOUR_PASS` | View your bookmarks |
-| `/export?password=YOUR_PASS` | Download your full episode history as CSV |
 
-All endpoints except `/backup` are protected by your Pocket Casts password.
+All endpoints are protected by cookie-based authentication using your Pocket Casts password.
 
 ## Database Migrations
 

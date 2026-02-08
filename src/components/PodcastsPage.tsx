@@ -16,8 +16,8 @@ function PodcastHeaderRow() {
   );
 }
 
-function PodcastRow({ podcast, password }: { podcast: PodcastWithStats; password: string | null }) {
-  const href = `/podcast/${podcast.uuid}${password ? `?password=${encodeURIComponent(password)}` : ''}`;
+function PodcastRow({ podcast }: { podcast: PodcastWithStats }) {
+  const href = `/podcast/${podcast.uuid}`;
 
   return (
     <div class="grid items-center px-3 h-[52px] border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150" style={`grid-template-columns: ${PODCAST_GRID}; gap: 8px`}>
@@ -33,12 +33,12 @@ function PodcastRow({ podcast, password }: { podcast: PodcastWithStats; password
   );
 }
 
-export function PodcastsPage({ podcasts, password }: { podcasts: PodcastWithStats[]; password: string | null }) {
+export function PodcastsPage({ podcasts }: { podcasts: PodcastWithStats[] }) {
   const active = podcasts.filter(p => p.deleted_at === null);
   const deleted = podcasts.filter(p => p.deleted_at !== null);
 
   return (
-    <Layout title="Castkeeper — Podcasts" password={password}>
+    <Layout title="Castkeeper — Podcasts">
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-base font-semibold text-[#fafafa] tracking-tight">Podcasts</h1>
         <span class="text-xs text-[#71717a]">
@@ -47,13 +47,13 @@ export function PodcastsPage({ podcasts, password }: { podcasts: PodcastWithStat
       </div>
       <div class="overflow-x-auto"><div class="min-w-[540px]">
         <PodcastHeaderRow />
-        {active.map(p => <PodcastRow podcast={p} password={password} />)}
+        {active.map(p => <PodcastRow podcast={p} />)}
       </div></div>
       {deleted.length > 0 && (
         <>
           <div class="flex items-center gap-3 mt-5 mb-2"><span class="text-[11px] uppercase tracking-wider text-[#71717a] font-medium whitespace-nowrap">Removed</span><div class="h-px bg-white/[0.06] flex-1"></div></div>
           <div class="overflow-x-auto"><div class="min-w-[540px]">
-            {deleted.map(p => <div class="opacity-60"><PodcastRow podcast={p} password={password} /></div>)}
+            {deleted.map(p => <div class="opacity-60"><PodcastRow podcast={p} /></div>)}
           </div></div>
         </>
       )}

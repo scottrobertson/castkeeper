@@ -25,10 +25,10 @@ export function StatusDot({ episode }: { episode: StoredEpisode }) {
   return dot('border border-[#27272a]', 'Not Started');
 }
 
-export function EpisodeRow({ episode, showPodcast = true, password, hideBorder }: { episode: StoredEpisode; showPodcast?: boolean; password?: string | null; hideBorder?: boolean }) {
+export function EpisodeRow({ episode, showPodcast = true, hideBorder }: { episode: StoredEpisode; showPodcast?: boolean; hideBorder?: boolean }) {
   const progress = calculateProgress(episode.played_up_to, episode.duration);
   const progressLabel = `${formatDuration(episode.played_up_to)} / ${formatDuration(episode.duration)}`;
-  const podcastHref = `/podcast/${episode.podcast_uuid}${password ? `?password=${encodeURIComponent(password)}` : ''}`;
+  const podcastHref = `/podcast/${episode.podcast_uuid}`;
 
   return (
     <div class={`grid items-center pr-1 sm:pr-3 h-[52px] ${hideBorder ? '' : 'border-b border-white/[0.04]'} hover:bg-white/[0.02] transition-colors duration-150`} style="grid-template-columns: 12px 1fr 24px 120px 52px; gap: 8px">
@@ -87,7 +87,7 @@ export function DayHeading({ label }: { label: string }) {
   );
 }
 
-export function GroupedEpisodes({ episodes, showPodcast = true, password }: { episodes: StoredEpisode[]; showPodcast?: boolean; password?: string | null }) {
+export function GroupedEpisodes({ episodes, showPodcast = true }: { episodes: StoredEpisode[]; showPodcast?: boolean }) {
   const elements: any[] = [];
   let currentDay = '';
 
@@ -107,7 +107,7 @@ export function GroupedEpisodes({ episodes, showPodcast = true, password }: { ep
     const nextDayKey = nextEpisode ? getDayKey(nextEpisode.played_at) : null;
     const isLastInGroup = !nextEpisode || nextDayKey !== dayKey;
 
-    elements.push(<EpisodeRow episode={episode} showPodcast={showPodcast} password={password} hideBorder={isLastInGroup} />);
+    elements.push(<EpisodeRow episode={episode} showPodcast={showPodcast} hideBorder={isLastInGroup} />);
   }
 
   return <>{elements}</>;
@@ -122,15 +122,14 @@ export const FILTER_OPTIONS: { value: EpisodeFilter; label: string }[] = [
   { value: "starred", label: "Starred" },
 ];
 
-export function buildFilterParams(basePath: string, password: string | null, filters: EpisodeFilter[], page?: number): string {
+export function buildFilterParams(basePath: string, filters: EpisodeFilter[], page?: number): string {
   const parts: string[] = [];
-  if (password) parts.push(`password=${encodeURIComponent(password)}`);
   filters.forEach(f => parts.push(`filter=${encodeURIComponent(f)}`));
   if (page && page > 1) parts.push(`page=${page}`);
   return `${basePath}${parts.length > 0 ? `?${parts.join('&')}` : ''}`;
 }
 
-export function FilterDropdown({ basePath, password, filters }: { basePath: string; password: string | null; filters: EpisodeFilter[] }) {
+export function FilterDropdown({ basePath, filters }: { basePath: string; filters: EpisodeFilter[] }) {
   const activeFilters = new Set(filters);
   const filterCount = filters.length;
   const funnelColor = filterCount > 0 ? 'text-[#fafafa]' : 'text-[#555]';
@@ -148,7 +147,7 @@ export function FilterDropdown({ basePath, password, filters }: { basePath: stri
             const nextFilters = isActive
               ? filters.filter(f => f !== opt.value)
               : [...filters, opt.value];
-            const href = buildFilterParams(basePath, password, nextFilters);
+            const href = buildFilterParams(basePath, nextFilters);
             return (
               <a href={href} class={`flex items-center gap-2.5 px-3 py-1.5 text-[13px] ${isActive ? 'text-[#fafafa]' : 'text-[#999]'} hover:bg-white/[0.04] transition-colors duration-150`}>
                 {isActive
@@ -172,9 +171,8 @@ export function FilterDropdown({ basePath, password, filters }: { basePath: stri
   );
 }
 
-export function Pagination({ basePath, password, filters, page, totalPages }: {
+export function Pagination({ basePath, filters, page, totalPages }: {
   basePath: string;
-  password: string | null;
   filters: EpisodeFilter[];
   page: number;
   totalPages: number;
@@ -183,9 +181,9 @@ export function Pagination({ basePath, password, filters, page, totalPages }: {
 
   return (
     <div class="flex items-center justify-center gap-2 mt-6">
-      {page > 1 && <a href={buildFilterParams(basePath, password, filters, page - 1)} class="h-8 inline-flex items-center px-3 text-xs font-medium rounded-md border border-[#27272a] text-[#71717a] hover:text-[#fafafa] hover:bg-white/[0.04] transition-all duration-150">Previous</a>}
+      {page > 1 && <a href={buildFilterParams(basePath, filters, page - 1)} class="h-8 inline-flex items-center px-3 text-xs font-medium rounded-md border border-[#27272a] text-[#71717a] hover:text-[#fafafa] hover:bg-white/[0.04] transition-all duration-150">Previous</a>}
       <span class="text-xs text-[#555]">Page {page} of {totalPages}</span>
-      {page < totalPages && <a href={buildFilterParams(basePath, password, filters, page + 1)} class="h-8 inline-flex items-center px-3 text-xs font-medium rounded-md border border-[#27272a] text-[#71717a] hover:text-[#fafafa] hover:bg-white/[0.04] transition-all duration-150">Next</a>}
+      {page < totalPages && <a href={buildFilterParams(basePath, filters, page + 1)} class="h-8 inline-flex items-center px-3 text-xs font-medium rounded-md border border-[#27272a] text-[#71717a] hover:text-[#fafafa] hover:bg-white/[0.04] transition-all duration-150">Next</a>}
     </div>
   );
 }

@@ -2,8 +2,8 @@ import type { BookmarkWithEpisode } from "../db";
 import { Tooltip } from "./EpisodeList";
 import { formatDuration, formatRelativeDate } from "../utils";
 
-export function BookmarkRow({ bookmark, password, showPodcast = true }: { bookmark: BookmarkWithEpisode; password?: string | null; showPodcast?: boolean }) {
-  const podcastHref = `/podcast/${bookmark.podcast_uuid}${password ? `?password=${encodeURIComponent(password)}` : ''}`;
+export function BookmarkRow({ bookmark, showPodcast = true }: { bookmark: BookmarkWithEpisode; showPodcast?: boolean }) {
+  const podcastHref = `/podcast/${bookmark.podcast_uuid}`;
   const columns = showPodcast
     ? '12px 1fr 200px 200px 80px 80px'
     : '12px 1fr 1fr 80px 80px';

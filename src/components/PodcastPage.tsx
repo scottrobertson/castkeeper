@@ -1,17 +1,16 @@
 import type { StoredEpisode } from "../schema";
 import type { PodcastWithStats, BookmarkWithEpisode, EpisodeFilter } from "../db";
 import { Layout } from "./Layout";
-import { EpisodeRow, FilterDropdown, Pagination, Tooltip, buildFilterParams } from "./EpisodeList";
+import { EpisodeRow, FilterDropdown, Pagination, Tooltip } from "./EpisodeList";
 import { BookmarkRow } from "./BookmarkList";
 import { formatDuration, formatRelativeDate } from "../utils";
 
-export function PodcastPage({ podcast, episodes, totalEpisodes, page, perPage, password, filters = [], bookmarks = [] }: {
+export function PodcastPage({ podcast, episodes, totalEpisodes, page, perPage, filters = [], bookmarks = [] }: {
   podcast: PodcastWithStats;
   episodes: StoredEpisode[];
   totalEpisodes: number;
   page: number;
   perPage: number;
-  password: string | null;
   filters?: EpisodeFilter[];
   bookmarks?: BookmarkWithEpisode[];
 }) {
@@ -23,7 +22,7 @@ export function PodcastPage({ podcast, episodes, totalEpisodes, page, perPage, p
   const hasFilters = filters.length > 0;
 
   return (
-    <Layout title={`Castkeeper — ${podcast.title}`} password={password}>
+    <Layout title={`Castkeeper — ${podcast.title}`}>
       <div class="mb-6">
         <div class="flex items-center gap-3 mb-1">
           <h1 class="text-base font-semibold text-[#fafafa] tracking-tight">{podcast.title}</h1>
@@ -47,7 +46,7 @@ export function PodcastPage({ podcast, episodes, totalEpisodes, page, perPage, p
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-3">
           <h2 class="text-sm font-medium text-[#fafafa]">Episodes</h2>
-          <FilterDropdown basePath={basePath} password={password} filters={filters} />
+          <FilterDropdown basePath={basePath} filters={filters} />
         </div>
         {hasFilters
           ? <span class="text-xs text-[#71717a]">{totalEpisodes} matching</span>
@@ -60,7 +59,7 @@ export function PodcastPage({ podcast, episodes, totalEpisodes, page, perPage, p
       {episodes.length === 0 && hasFilters ? (
         <div class="flex flex-col items-center justify-center py-16 text-center">
           <p class="text-[#71717a] text-sm">No episodes match these filters</p>
-          <a href={`${basePath}${password ? `?password=${encodeURIComponent(password)}` : ''}`} class="text-[#3ecf8e] text-sm mt-2 hover:underline">Clear filters</a>
+          <a href={basePath} class="text-[#3ecf8e] text-sm mt-2 hover:underline">Clear filters</a>
         </div>
       ) : (
         <div>
@@ -68,7 +67,7 @@ export function PodcastPage({ podcast, episodes, totalEpisodes, page, perPage, p
         </div>
       )}
 
-      <Pagination basePath={basePath} password={password} filters={filters} page={page} totalPages={totalPages} />
+      <Pagination basePath={basePath} filters={filters} page={page} totalPages={totalPages} />
 
       {hasBookmarks && (
         <div class="mt-8">
@@ -79,13 +78,13 @@ export function PodcastPage({ podcast, episodes, totalEpisodes, page, perPage, p
             </span>
           </div>
           <div>
-            {activeBookmarks.map(b => <BookmarkRow bookmark={b} password={password} showPodcast={false} />)}
+            {activeBookmarks.map(b => <BookmarkRow bookmark={b} showPodcast={false} />)}
           </div>
           {deletedBookmarks.length > 0 && (
             <>
               <div class="flex items-center gap-3 mt-5 mb-2"><span class="text-[11px] uppercase tracking-wider text-[#71717a] font-medium whitespace-nowrap">Removed</span><div class="h-px bg-white/[0.06] flex-1"></div></div>
               <div>
-                {deletedBookmarks.map(b => <div class="opacity-60"><BookmarkRow bookmark={b} password={password} showPodcast={false} /></div>)}
+                {deletedBookmarks.map(b => <div class="opacity-60"><BookmarkRow bookmark={b} showPodcast={false} /></div>)}
               </div>
             </>
           )}

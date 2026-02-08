@@ -32,29 +32,29 @@ function makePodcast(overrides: Partial<PodcastWithStats> = {}): PodcastWithStat
   };
 }
 
-function render(podcasts: PodcastWithStats[], password: string | null): string {
-  return (<PodcastsPage podcasts={podcasts} password={password} />).toString();
+function render(podcasts: PodcastWithStats[]): string {
+  return (<PodcastsPage podcasts={podcasts} />).toString();
 }
 
 describe("PodcastsPage", () => {
   it("includes podcast title and author", () => {
-    const html = render([makePodcast({ title: "My Podcast", author: "Jane Doe" })], "pass");
+    const html = render([makePodcast({ title: "My Podcast", author: "Jane Doe" })]);
     expect(html).toContain("My Podcast");
     expect(html).toContain("Jane Doe");
   });
 
   it("shows tracked count", () => {
-    const html = render([makePodcast({ total_episodes: 42 })], "pass");
+    const html = render([makePodcast({ total_episodes: 42 })]);
     expect(html).toContain(">42<");
   });
 
   it("shows listening time", () => {
-    const html = render([makePodcast({ total_played_time: 7200 })], "pass");
+    const html = render([makePodcast({ total_played_time: 7200 })]);
     expect(html).toContain("2h 0m 0s");
   });
 
   it("shows subscribed count", () => {
-    const html = render([makePodcast(), makePodcast({ uuid: "pod-2" })], "pass");
+    const html = render([makePodcast(), makePodcast({ uuid: "pod-2" })]);
     expect(html).toContain("2 subscribed");
   });
 
@@ -62,18 +62,18 @@ describe("PodcastsPage", () => {
     const html = render([
       makePodcast(),
       makePodcast({ uuid: "pod-2", deleted_at: "2024-06-01T00:00:00Z" }),
-    ], "pass");
+    ]);
     expect(html).toContain("Removed");
     expect(html).toContain("1 removed");
   });
 
   it("shows dashes for podcast with no tracked episodes", () => {
-    const html = render([makePodcast({ total_episodes: 0, played_count: 0, total_played_time: 0 })], "pass");
+    const html = render([makePodcast({ total_episodes: 0, played_count: 0, total_played_time: 0 })]);
     expect(html).toContain(">\u2014<");
   });
 
   it("shows column headers", () => {
-    const html = render([makePodcast()], "pass");
+    const html = render([makePodcast()]);
     expect(html).toContain("Episodes");
     expect(html).toContain("Tracked");
     expect(html).toContain("Listened");
@@ -82,7 +82,7 @@ describe("PodcastsPage", () => {
   });
 
   it("shows episode count", () => {
-    const html = render([makePodcast({ episode_count: 250 })], "pass");
+    const html = render([makePodcast({ episode_count: 250 })]);
     expect(html).toContain(">250<");
   });
 });

@@ -2,12 +2,14 @@
 
 import { Hono } from "hono";
 import type { Context, Next } from "hono";
+import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { getEpisodes, getEpisodeCount, getPodcastsWithStats, getPodcastWithStats, getBookmarksWithEpisodes, parseFilters } from "./db";
 import { handleQueueMessage } from "./backup";
 import { EpisodesPage } from "./components/EpisodesPage";
 import { PodcastsPage } from "./components/PodcastsPage";
 import { BookmarksPage } from "./components/BookmarksPage";
 import { PodcastPage } from "./components/PodcastPage";
+import { LoginPage } from "./components/LoginPage";
 import { generateCsv } from "./csv";
 import type { Env, BackupResult, BackupQueueMessage } from "./types";
 
@@ -17,15 +19,51 @@ const app = new Hono<{ Bindings: Env }>();
 
 const EPISODES_PER_PAGE = 50;
 
-const requireAuth = (c: AppContext, next: Next) => {
-  const password = c.req.query("password");
-  if (password !== c.env.PASS) {
-    return c.text("Unauthorized", 401);
+async function generateToken(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+const requireAuth = async (c: AppContext, next: Next) => {
+  const token = getCookie(c, "session");
+  const expected = await generateToken(c.env.PASS);
+  if (token !== expected) {
+    return c.redirect("/");
   }
   return next();
 };
 
-app.get("/", (c) => c.text("castkeeper"));
+app.get("/", async (c) => {
+  const token = getCookie(c, "session");
+  const expected = await generateToken(c.env.PASS);
+  if (token === expected) {
+    return c.redirect("/episodes");
+  }
+  return c.html(<LoginPage />);
+});
+
+app.post("/login", async (c) => {
+  const body = await c.req.parseBody();
+  const password = body["password"];
+  if (typeof password !== "string" || password !== c.env.PASS) {
+    return c.html(<LoginPage error="Invalid password" />, 401);
+  }
+  const token = await generateToken(password);
+  setCookie(c, "session", token, {
+    path: "/",
+    httpOnly: true,
+    secure: new URL(c.req.url).protocol === "https:",
+    sameSite: "Lax",
+  });
+  return c.redirect("/episodes");
+});
+
+app.post("/logout", async (c) => {
+  deleteCookie(c, "session", { path: "/" });
+  return c.redirect("/");
+});
 
 app.get("/backup", requireAuth, async (c) => {
   try {
@@ -44,7 +82,6 @@ app.get("/backup", requireAuth, async (c) => {
 });
 
 app.get("/episodes", requireAuth, async (c) => {
-  const password = c.req.query("password") ?? null;
   const page = Math.max(1, parseInt(c.req.query("page") || "1", 10) || 1);
   const filters = parseFilters(c.req.queries("filter") ?? []);
   const offset = (page - 1) * EPISODES_PER_PAGE;
@@ -55,18 +92,16 @@ app.get("/episodes", requireAuth, async (c) => {
   ]);
 
   return c.html(
-    <EpisodesPage episodes={episodes} totalEpisodes={totalEpisodes} page={page} perPage={EPISODES_PER_PAGE} password={password} filters={filters} />
+    <EpisodesPage episodes={episodes} totalEpisodes={totalEpisodes} page={page} perPage={EPISODES_PER_PAGE} filters={filters} />
   );
 });
 
 app.get("/podcasts", requireAuth, async (c) => {
-  const password = c.req.query("password") ?? null;
   const podcasts = await getPodcastsWithStats(c.env.DB);
-  return c.html(<PodcastsPage podcasts={podcasts} password={password} />);
+  return c.html(<PodcastsPage podcasts={podcasts} />);
 });
 
 app.get("/podcast/:uuid", requireAuth, async (c) => {
-  const password = c.req.query("password") ?? null;
   const uuid = c.req.param("uuid");
   const page = Math.max(1, parseInt(c.req.query("page") || "1", 10) || 1);
   const filters = parseFilters(c.req.queries("filter") ?? []);
@@ -84,14 +119,13 @@ app.get("/podcast/:uuid", requireAuth, async (c) => {
   ]);
 
   return c.html(
-    <PodcastPage podcast={podcast} episodes={episodes} totalEpisodes={totalEpisodes} page={page} perPage={EPISODES_PER_PAGE} password={password} filters={filters} bookmarks={bookmarks} />
+    <PodcastPage podcast={podcast} episodes={episodes} totalEpisodes={totalEpisodes} page={page} perPage={EPISODES_PER_PAGE} filters={filters} bookmarks={bookmarks} />
   );
 });
 
 app.get("/bookmarks", requireAuth, async (c) => {
-  const password = c.req.query("password") ?? null;
   const bookmarks = await getBookmarksWithEpisodes(c.env.DB);
-  return c.html(<BookmarksPage bookmarks={bookmarks} password={password} />);
+  return c.html(<BookmarksPage bookmarks={bookmarks} />);
 });
 
 app.get("/export", requireAuth, async (c) => {
