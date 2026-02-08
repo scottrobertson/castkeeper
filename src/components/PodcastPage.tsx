@@ -35,10 +35,7 @@ export function PodcastPage({ podcast, episodes, totalEpisodes, page, perPage, f
           <a href={podcast.url} target="_blank" rel="noopener noreferrer" class="inline-block mt-1 text-xs text-[#555] hover:text-[#999] transition-colors duration-150 no-underline truncate max-w-md">{podcast.url}</a>
         )}
         {podcast.description && <p class="text-[#999] text-sm mt-2 leading-relaxed">{podcast.description}</p>}
-        <div class="mt-4 pt-4 border-t border-white/[0.06] text-xs text-[#555] space-y-1">
-          {podcast.total_episodes > 0 && (
-            <p>{podcast.total_episodes} {podcast.total_episodes === 1 ? 'episode' : 'episodes'}{podcast.total_played_time > 0 && ` \u00b7 ${formatDuration(podcast.total_played_time)} listened`}</p>
-          )}
+        <div class="mt-4 pt-4 border-t border-white/[0.06] text-xs text-[#555]">
           <p>Subscribed {formatRelativeDate(podcast.date_added)}{podcast.last_episode_published && ` \u00b7 Last published ${formatRelativeDate(podcast.last_episode_published)}`}</p>
         </div>
       </div>
@@ -50,9 +47,12 @@ export function PodcastPage({ podcast, episodes, totalEpisodes, page, perPage, f
         </div>
         {hasFilters
           ? <span class="text-xs text-[#71717a]">{totalEpisodes} matching</span>
-          : <Tooltip label={`${totalEpisodes} episodes you've interacted with out of ${podcast.episode_count} published`}>
-              <span class="text-xs text-[#71717a] cursor-default border-b border-dotted border-[#555]">{totalEpisodes} of {podcast.episode_count} tracked</span>
-            </Tooltip>
+          : <span class="text-xs text-[#71717a]">
+              <Tooltip label={`${totalEpisodes} episodes you've interacted with out of ${podcast.episode_count} published`}>
+                <span class="cursor-default border-b border-dotted border-[#555]">{totalEpisodes} of {podcast.episode_count} tracked</span>
+              </Tooltip>
+              {podcast.total_played_time > 0 && ` \u00b7 ${formatDuration(podcast.total_played_time)} listened`}
+            </span>
         }
       </div>
 

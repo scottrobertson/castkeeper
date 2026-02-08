@@ -5,7 +5,7 @@ import { calculateProgress, formatDuration, formatRelativeDate } from "../utils"
 
 export function Tooltip({ children, label }: { children: any; label: string }) {
   return (
-    <div class="group/tip relative">
+    <div class="group/tip relative inline-block">
       {children}
       <div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-[#fafafa] text-[#0a0a0a] text-[11px] font-medium whitespace-nowrap opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg">{label}</div>
     </div>
