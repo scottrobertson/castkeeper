@@ -14,8 +14,8 @@ export async function getEpisodeSyncData(token: string, podcastUuid: string): Pr
   );
 
   if (!res.ok) {
-    console.log(await res.text());
-    throw new Error(`Failed to fetch episode sync data for ${podcastUuid}`);
+    const body = await res.text();
+    throw new Error(`Failed to fetch episode sync data for ${podcastUuid}: ${res.status} ${body}`);
   }
   return await res.json() as PodcastEpisodesResponse;
 }
@@ -30,8 +30,8 @@ export async function getPodcastEpisodeMetadata(podcastUuid: string): Promise<Ca
   );
 
   if (!res.ok) {
-    console.log(await res.text());
-    throw new Error(`Failed to fetch podcast metadata for ${podcastUuid}`);
+    const body = await res.text();
+    throw new Error(`Failed to fetch podcast metadata for ${podcastUuid}: ${res.status} ${body}`);
   }
   return await res.json() as CachePodcastResponse;
 }
@@ -50,8 +50,8 @@ export async function getPodcastList(token: string): Promise<PodcastListResponse
   );
 
   if (!res.ok) {
-    console.log(await res.text());
-    throw new Error("Failed to fetch podcast list");
+    const body = await res.text();
+    throw new Error(`Failed to fetch podcast list: ${res.status} ${body}`);
   }
   return await res.json() as PodcastListResponse;
 }
@@ -70,8 +70,8 @@ export async function getBookmarks(token: string): Promise<BookmarkListResponse>
   );
 
   if (!res.ok) {
-    console.log(await res.text());
-    throw new Error("Failed to fetch bookmarks");
+    const body = await res.text();
+    throw new Error(`Failed to fetch bookmarks: ${res.status} ${body}`);
   }
   return await res.json() as BookmarkListResponse;
 }

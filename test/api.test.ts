@@ -47,12 +47,13 @@ describe("getEpisodeSyncData", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: false,
+        status: 401,
         text: () => Promise.resolve("Unauthorized"),
       })
     );
 
     await expect(getEpisodeSyncData("bad-token", "pod-1")).rejects.toThrow(
-      "Failed to fetch episode sync data for pod-1"
+      "Failed to fetch episode sync data for pod-1: 401 Unauthorized"
     );
   });
 });
@@ -101,12 +102,13 @@ describe("getPodcastEpisodeMetadata", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: false,
+        status: 404,
         text: () => Promise.resolve("Not Found"),
       })
     );
 
     await expect(getPodcastEpisodeMetadata("pod-1")).rejects.toThrow(
-      "Failed to fetch podcast metadata for pod-1"
+      "Failed to fetch podcast metadata for pod-1: 404 Not Found"
     );
   });
 });
