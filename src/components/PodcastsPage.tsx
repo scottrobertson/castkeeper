@@ -38,7 +38,7 @@ export function PodcastsPage({ podcasts, password }: { podcasts: PodcastWithStat
   const deleted = podcasts.filter(p => p.deleted_at !== null);
 
   return (
-    <Layout title="Castkeeper &mdash; Podcasts" password={password}>
+    <Layout title="Castkeeper — Podcasts" password={password}>
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-base font-semibold text-[#fafafa] tracking-tight">Podcasts</h1>
         <span class="text-xs text-[#71717a]">

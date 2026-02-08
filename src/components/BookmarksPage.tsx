@@ -7,7 +7,7 @@ export function BookmarksPage({ bookmarks, password }: { bookmarks: BookmarkWith
   const deleted = bookmarks.filter(b => b.deleted_at !== null);
 
   return (
-    <Layout title="Castkeeper &mdash; Bookmarks" password={password}>
+    <Layout title="Castkeeper — Bookmarks" password={password}>
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-base font-semibold text-[#fafafa] tracking-tight">Bookmarks</h1>
         <span class="text-xs text-[#71717a]">

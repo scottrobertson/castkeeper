@@ -14,7 +14,7 @@ export function EpisodesPage({ episodes, totalEpisodes, page, perPage, password,
   const totalPages = Math.ceil(totalEpisodes / perPage);
 
   return (
-    <Layout title="Castkeeper &mdash; Episodes" password={password}>
+    <Layout title="Castkeeper — Episodes" password={password}>
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-3">
           <h1 class="text-base font-semibold text-[#fafafa] tracking-tight">Episodes</h1>

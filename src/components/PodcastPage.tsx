@@ -23,7 +23,7 @@ export function PodcastPage({ podcast, episodes, totalEpisodes, page, perPage, p
   const hasFilters = filters.length > 0;
 
   return (
-    <Layout title={`Castkeeper &mdash; ${podcast.title}`} password={password}>
+    <Layout title={`Castkeeper — ${podcast.title}`} password={password}>
       <div class="mb-6">
         <div class="flex items-center gap-3 mb-1">
           <h1 class="text-base font-semibold text-[#fafafa] tracking-tight">{podcast.title}</h1>
