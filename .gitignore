@@ -11,6 +11,7 @@ localhost.sqlite3
 .wrangler/
 wrangler.toml
 worker/
+src/build-version.js
 
 # TypeScript
 dist/

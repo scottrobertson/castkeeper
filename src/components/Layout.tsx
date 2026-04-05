@@ -1,5 +1,6 @@
 import { raw } from "hono/html";
 import type { Child } from "hono/jsx";
+import BUILD_VERSION from "../build-version.js";
 
 export function Layout({ title, children }: { title: string; children: Child }) {
   return (
@@ -39,6 +40,10 @@ export function Layout({ title, children }: { title: string; children: Child }) 
         <main class="max-w-4xl mx-auto px-3 sm:px-6 py-6">
           {children}
         </main>
+
+        <footer class="max-w-4xl mx-auto px-3 sm:px-6 pb-6 text-right">
+          <p class="text-[10px] text-[#27272a]">{BUILD_VERSION}</p>
+        </footer>
 
         <script>{raw(`
           async function runBackup() {
