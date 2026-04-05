@@ -11,11 +11,11 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.12.10",
-    "@cloudflare/workers-types": "^4.20241218.0",
+    "@cloudflare/vitest-pool-workers": "^0.12.21",
+    "@cloudflare/workers-types": "^4.20260405.1",
     "typescript": "^5.7.2",
     "vitest": "^3.2.4",
-    "wrangler": "^4.23.0"
+    "wrangler": "^4.80.0"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -23,7 +23,7 @@
   "author": "Scott",
   "license": "MIT",
   "dependencies": {
-    "drizzle-orm": "^0.45.1",
-    "hono": "^4.11.8"
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.10"
   }
 }
