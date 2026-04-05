@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
-import { applyD1Migrations } from "cloudflare:test";
+import { resetDatabase } from "./reset-db";
 import { getExistingEpisodeUuids, updateEpisodeSyncData, insertNewEpisodes, getEpisodes, getEpisodeCount, savePodcasts, getPodcasts, getPodcastCount, saveBookmarks, getBookmarks, getPodcastsWithStats, getBookmarksWithEpisodes, updateEpisodePlayedAt, parseFilters } from "../src/db";
 import type { NewEpisode, EpisodeFilter } from "../src/db";
 import type { PodcastListResponse, BookmarkListResponse } from "../src/types";
@@ -69,10 +69,7 @@ function makeBookmark(overrides: Partial<BookmarkListResponse["bookmarks"][numbe
 }
 
 beforeEach(async () => {
-  await env.DB.exec("DROP TABLE IF EXISTS episodes");
-  await env.DB.exec("DROP TABLE IF EXISTS podcasts");
-  await env.DB.exec("DROP TABLE IF EXISTS bookmarks");
-  await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
+  await resetDatabase();
 });
 
 describe("insertNewEpisodes", () => {

@@ -1,12 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { SELF, env } from "cloudflare:test";
-import { applyD1Migrations } from "cloudflare:test";
+import { resetDatabase } from "./reset-db";
 
 beforeEach(async () => {
-  await env.DB.exec("DROP TABLE IF EXISTS episodes");
-  await env.DB.exec("DROP TABLE IF EXISTS podcasts");
-  await env.DB.exec("DROP TABLE IF EXISTS bookmarks");
-  await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
+  await resetDatabase();
 });
 
 async function login(): Promise<string> {
