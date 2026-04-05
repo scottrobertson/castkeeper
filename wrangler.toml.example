@@ -21,5 +21,8 @@ queue = "castkeeper"
 max_batch_size = 1
 max_retries = 3
 
+[build]
+command = "echo \"export default \\\"$(git log -1 --format='%h (%cd)' --date=format:'%Y-%m-%d %H:%M')\\\";\" > src/build-version.js"
+
 [triggers]
 crons = ["0 * * * *"]
