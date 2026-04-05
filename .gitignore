@@ -26,9 +26,7 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-npm-debug.log*
+src/build-version.js
 
 # Local data
 history.json

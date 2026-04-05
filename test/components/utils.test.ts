@@ -43,6 +43,14 @@ describe("calculateProgress", () => {
   it("returns 0 when nothing has been played", () => {
     expect(calculateProgress(0, 600)).toBe(0);
   });
+
+  it("returns 0 when duration is 0 (avoids division by zero)", () => {
+    expect(calculateProgress(0, 0)).toBe(0);
+  });
+
+  it("caps at 100 when played_up_to exceeds duration", () => {
+    expect(calculateProgress(700, 600)).toBe(100);
+  });
 });
 
 describe("formatRelativeDate", () => {

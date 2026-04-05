@@ -13,6 +13,7 @@ export function formatDuration(seconds: number): string {
 }
 
 export function calculateProgress(playedTime: number, duration: number): number {
+  if (duration === 0) return 0;
   return Math.min(100, Math.round((playedTime / duration) * 100));
 }
 

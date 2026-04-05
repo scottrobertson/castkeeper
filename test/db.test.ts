@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
 import { resetDatabase } from "./reset-db";
-import { getExistingEpisodeUuids, updateEpisodeSyncData, insertNewEpisodes, getEpisodes, getEpisodeCount, savePodcasts, getPodcasts, getPodcastCount, saveBookmarks, getBookmarks, getPodcastsWithStats, getBookmarksWithEpisodes, updateEpisodePlayedAt, parseFilters } from "../src/db";
+import { getExistingEpisodeUuids, updateEpisodeSyncData, insertNewEpisodes, getEpisodes, getEpisodeCount, savePodcasts, getPodcasts, getPodcastCount, saveBookmarks, getBookmarks, getPodcastsWithStats, getBookmarksWithEpisodes, updateEpisodePlayedAt, parseFilters, updatePodcastEpisodeCount, getPodcastWithStats, resetBackupProgress, incrementBackupProgress } from "../src/db";
 import type { NewEpisode, EpisodeFilter } from "../src/db";
 import type { PodcastListResponse, BookmarkListResponse } from "../src/types";
 
@@ -639,5 +639,210 @@ describe("getBookmarksWithEpisodes", () => {
     expect(bookmarks[0].episode_title).toBe("My Episode");
     expect(bookmarks[0].podcast_title).toBe("My Podcast");
     expect(bookmarks[0].episode_duration).toBe(3600);
+  });
+
+  it("filters bookmarks by podcast uuid", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", podcast_uuid: "pod-1" }),
+      makeNewEpisode({ uuid: "ep-2", podcast_uuid: "pod-2" }),
+    ]);
+
+    await saveBookmarks(env.DB, {
+      bookmarks: [
+        makeBookmark({ bookmarkUuid: "bm-1", podcastUuid: "pod-1", episodeUuid: "ep-1" }),
+        makeBookmark({ bookmarkUuid: "bm-2", podcastUuid: "pod-2", episodeUuid: "ep-2" }),
+      ],
+    });
+
+    const bookmarks = await getBookmarksWithEpisodes(env.DB, "pod-1");
+    expect(bookmarks).toHaveLength(1);
+    expect(bookmarks[0].bookmark_uuid).toBe("bm-1");
+    expect(bookmarks[0].podcast_uuid).toBe("pod-1");
+  });
+
+  it("returns all bookmarks when no podcast uuid is provided", async () => {
+    await saveBookmarks(env.DB, {
+      bookmarks: [
+        makeBookmark({ bookmarkUuid: "bm-1", podcastUuid: "pod-1" }),
+        makeBookmark({ bookmarkUuid: "bm-2", podcastUuid: "pod-2" }),
+      ],
+    });
+
+    const bookmarks = await getBookmarksWithEpisodes(env.DB);
+    expect(bookmarks).toHaveLength(2);
+  });
+});
+
+describe("updatePodcastEpisodeCount", () => {
+  it("updates the episode_count on a podcast", async () => {
+    await savePodcasts(env.DB, { podcasts: [makePodcast()], folders: [] });
+
+    await updatePodcastEpisodeCount(env.DB, "pod-1", 99);
+
+    const podcasts = await getPodcasts(env.DB);
+    expect(podcasts[0].episode_count).toBe(99);
+  });
+
+  it("does nothing when podcast uuid does not exist", async () => {
+    // Should not throw, just update 0 rows
+    await expect(updatePodcastEpisodeCount(env.DB, "nonexistent", 5)).resolves.toBeUndefined();
+  });
+});
+
+describe("getPodcastWithStats", () => {
+  it("returns null when podcast does not exist", async () => {
+    const result = await getPodcastWithStats(env.DB, "nonexistent");
+    expect(result).toBeNull();
+  });
+
+  it("returns the podcast with stats when it exists", async () => {
+    await savePodcasts(env.DB, { podcasts: [makePodcast()], folders: [] });
+
+    const podcast = await getPodcastWithStats(env.DB, "pod-1");
+    expect(podcast).not.toBeNull();
+    expect(podcast!.uuid).toBe("pod-1");
+    expect(podcast!.title).toBe("Test Podcast");
+  });
+
+  it("aggregates episode stats correctly", async () => {
+    await savePodcasts(env.DB, { podcasts: [makePodcast()], folders: [] });
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", playing_status: 3, played_up_to: 1800, starred: 1 }),
+      makeNewEpisode({ uuid: "ep-2", playing_status: 3, played_up_to: 3600, starred: 0 }),
+      makeNewEpisode({ uuid: "ep-3", playing_status: 2, played_up_to: 900, starred: 0 }),
+    ]);
+
+    const podcast = await getPodcastWithStats(env.DB, "pod-1");
+    expect(podcast!.total_episodes).toBe(3);
+    expect(podcast!.played_count).toBe(2);
+    expect(podcast!.starred_count).toBe(1);
+    expect(podcast!.total_played_time).toBe(6300);
+  });
+
+  it("returns zero stats when podcast has no episodes", async () => {
+    await savePodcasts(env.DB, { podcasts: [makePodcast()], folders: [] });
+
+    const podcast = await getPodcastWithStats(env.DB, "pod-1");
+    expect(podcast!.total_episodes).toBe(0);
+    expect(podcast!.played_count).toBe(0);
+    expect(podcast!.starred_count).toBe(0);
+    expect(podcast!.total_played_time).toBe(0);
+  });
+});
+
+describe("resetBackupProgress and incrementBackupProgress", () => {
+  it("resets backup progress with total and completed=0", async () => {
+    await resetBackupProgress(env.DB, 10);
+    const progress = await incrementBackupProgress(env.DB);
+    // After reset to 10 total and increment once
+    expect(progress.total).toBe(10);
+    expect(progress.completed).toBe(1);
+  });
+
+  it("can reset progress multiple times", async () => {
+    await resetBackupProgress(env.DB, 5);
+    await incrementBackupProgress(env.DB);
+    await incrementBackupProgress(env.DB);
+
+    // Reset again with new total
+    await resetBackupProgress(env.DB, 20);
+    const progress = await incrementBackupProgress(env.DB);
+    expect(progress.total).toBe(20);
+    expect(progress.completed).toBe(1);
+  });
+
+  it("increments completed counter with each call", async () => {
+    await resetBackupProgress(env.DB, 5);
+
+    const p1 = await incrementBackupProgress(env.DB);
+    expect(p1.completed).toBe(1);
+
+    const p2 = await incrementBackupProgress(env.DB);
+    expect(p2.completed).toBe(2);
+
+    const p3 = await incrementBackupProgress(env.DB);
+    expect(p3.completed).toBe(3);
+  });
+
+  it("returns completed >= total when all podcasts are done", async () => {
+    await resetBackupProgress(env.DB, 2);
+    await incrementBackupProgress(env.DB);
+    const final = await incrementBackupProgress(env.DB);
+    expect(final.completed).toBeGreaterThanOrEqual(final.total);
+  });
+});
+
+describe("getEpisodes with podcastUuid filter", () => {
+  it("returns only episodes for the given podcast uuid", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", podcast_uuid: "pod-1" }),
+      makeNewEpisode({ uuid: "ep-2", podcast_uuid: "pod-2" }),
+      makeNewEpisode({ uuid: "ep-3", podcast_uuid: "pod-1" }),
+    ]);
+
+    const results = await getEpisodes(env.DB, undefined, undefined, [], "pod-1");
+    expect(results).toHaveLength(2);
+    expect(results.every(e => e.podcast_uuid === "pod-1")).toBe(true);
+  });
+
+  it("returns empty array when no episodes match the podcast uuid", async () => {
+    await insertNewEpisodes(env.DB, [makeNewEpisode({ uuid: "ep-1", podcast_uuid: "pod-1" })]);
+
+    const results = await getEpisodes(env.DB, undefined, undefined, [], "pod-unknown");
+    expect(results).toHaveLength(0);
+  });
+
+  it("combines podcastUuid filter with status filter", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", podcast_uuid: "pod-1", playing_status: 3 }),
+      makeNewEpisode({ uuid: "ep-2", podcast_uuid: "pod-1", playing_status: 2 }),
+      makeNewEpisode({ uuid: "ep-3", podcast_uuid: "pod-2", playing_status: 3 }),
+    ]);
+
+    const results = await getEpisodes(env.DB, undefined, undefined, ["played"], "pod-1");
+    expect(results).toHaveLength(1);
+    expect(results[0].uuid).toBe("ep-1");
+  });
+});
+
+describe("getEpisodeCount with podcastUuid filter", () => {
+  it("counts only episodes for the given podcast uuid", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", podcast_uuid: "pod-1" }),
+      makeNewEpisode({ uuid: "ep-2", podcast_uuid: "pod-2" }),
+      makeNewEpisode({ uuid: "ep-3", podcast_uuid: "pod-1" }),
+    ]);
+
+    expect(await getEpisodeCount(env.DB, [], "pod-1")).toBe(2);
+    expect(await getEpisodeCount(env.DB, [], "pod-2")).toBe(1);
+    expect(await getEpisodeCount(env.DB, [], "pod-unknown")).toBe(0);
+  });
+
+  it("combines podcastUuid with status filter for count", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", podcast_uuid: "pod-1", playing_status: 3 }),
+      makeNewEpisode({ uuid: "ep-2", podcast_uuid: "pod-1", playing_status: 2 }),
+      makeNewEpisode({ uuid: "ep-3", podcast_uuid: "pod-2", playing_status: 3 }),
+    ]);
+
+    expect(await getEpisodeCount(env.DB, ["played"], "pod-1")).toBe(1);
+    expect(await getEpisodeCount(env.DB, ["played"])).toBe(2);
+  });
+});
+
+describe("getEpisodes with limit and offset", () => {
+  it("respects offset parameter", async () => {
+    await insertNewEpisodes(env.DB, [
+      makeNewEpisode({ uuid: "ep-1", published: "2024-01-01T00:00:00Z" }),
+      makeNewEpisode({ uuid: "ep-2", published: "2024-02-01T00:00:00Z" }),
+      makeNewEpisode({ uuid: "ep-3", published: "2024-03-01T00:00:00Z" }),
+    ]);
+
+    const page1 = await getEpisodes(env.DB, 2, 0);
+    const page2 = await getEpisodes(env.DB, 2, 2);
+    expect(page1).toHaveLength(2);
+    expect(page2).toHaveLength(1);
+    // Make sure we get different episodes
+    expect(page1[0].uuid).not.toBe(page2[0].uuid);
   });
 });
