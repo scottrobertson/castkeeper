@@ -103,6 +103,9 @@ app.get("/podcasts", requireAuth, async (c) => {
 
 app.get("/podcast/:uuid", requireAuth, async (c) => {
   const uuid = c.req.param("uuid");
+  if (!uuid) {
+    return c.text("Not Found", 404);
+  }
   const page = Math.max(1, parseInt(c.req.query("page") || "1", 10) || 1);
   const filters = parseFilters(c.req.queries("filter") ?? []);
   const offset = (page - 1) * EPISODES_PER_PAGE;
