@@ -1,1 +1,1 @@
-export default "dev";
+export default 'test-version';
